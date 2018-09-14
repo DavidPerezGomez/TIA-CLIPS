@@ -72,6 +72,7 @@
 
 ;7
 (deffunction cierto(?symbol)
+    (bind ?symbol (str-cat ?symbol))  ; para que no de error con numeros
     (or (= 0 (str-compare ?symbol s)) (= 0 (str-compare ?symbol si)))
 )
 
