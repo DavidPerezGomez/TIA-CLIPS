@@ -57,7 +57,7 @@
 
 ;6
 (deffunction colores(?color)
-    (switch (str-cat ?color)
+    (switch (lowcase (str-cat ?color))
         ;str-cat el input para tener en cuenta símbolos también
         (case "verde" then
             (printout t "Puedes Pasar" crlf))
