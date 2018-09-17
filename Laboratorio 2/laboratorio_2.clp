@@ -150,9 +150,61 @@
     (bind ?result (create$))
     (foreach ?i $?vector
         (if (isValidNumber ?i)
-        then (bind ?result (insert$ $?result (* ?mult ?i) (+ 1 (length $?result))))
+        then (bind ?result (insert$ $?result (+ 1 (length $?result)) (* ?mult ?i)))
         else (printout t "Todos los valores deben ser números." crlf)
              (return)
         )
     )
+    (return $?result)
+)
+
+;10 iteración
+(deffunction factorialIter(?a)
+    (if (not (isNaturalNumber ?a)) then
+        (printout t "El parámetro no es correcto." crlf)
+        (return)
+    )
+
+    (if (= ?a 0)
+    then (return 1))
+
+    (bind ?acc 1)
+    (loop-for-count (?i 1 ?a)
+        (bind ?acc (* ?acc ?i))
+    )
+    (return ?acc)
+)
+
+;10 recursión
+(deffunction factorialRec(?a)
+    (if (not (isNaturalNumber ?a)) then
+        (printout t "El parámetro no es correcto." crlf)
+        (return)
+    )
+
+    (if (= ?a 0)
+    then (return 1)
+    else (return (* ?a (factorialRec(- ?a 1))))
+    )
+)
+
+;11
+(deffunction fibonacci()
+    (bind ?a (read))
+    (if (not (isNaturalNumber ?a)) then
+        (printout t "El parámetro no es correcto." crlf)
+        (return)
+    )
+
+    (bind ?x_prev 1)
+    (bind ?x 0)
+    (bind ?tmp 0)
+
+    (loop-for-count (?i 0 (- ?a 1))
+        (printout t ?x " ")
+        (bind ?tmp ?x_prev)
+        (bind ?x_prev ?x)
+        (bind ?x (+ ?x ?tmp))
+    )
+    (printout t "" crlf)
 )
