@@ -70,3 +70,31 @@
 
   (return (create$ ?hora ?min ?seg))
 )
+
+
+(deffunction es_bisiesto (?n)
+  (and
+    (= 0 (mod ?n 4))
+    (or
+      (!= 0 (mod ?n 100))
+      (= 0 (mod ?n 400))
+    )
+  )
+)
+
+(deffunction dia_siguiente (?v)
+  (bind ?year (integer(nth$ 1 ?v)))
+  (bind ?month (integer(nth$ 2 ?v)))
+  (bind ?day (integer(nth$ 3 ?v)))
+
+  (bind ?bisiesto (es_bisiesto ?year))
+
+  (bind ?m31 (create$ 1 3 5 7 8 10 12))
+  (bind ?m30 (create$ 4 6 9 11))
+  (bind ?m28 (create$ 2))
+
+  (bind ?day (+ ?day 1))
+
+  (if ?bisiesto then)
+
+)
