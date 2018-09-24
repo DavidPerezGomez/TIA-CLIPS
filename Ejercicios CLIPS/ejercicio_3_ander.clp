@@ -95,6 +95,6 @@
 
   (bind ?day (+ ?day 1))
 
-  (if ?bisiesto then)
-
+  ;(if ?bisiesto then)
+  ; TODO sin terminar
 )
