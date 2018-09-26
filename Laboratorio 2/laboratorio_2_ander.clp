@@ -1,8 +1,4 @@
 ;0
-(deffunction isValidNumber(?a)
-    (integerp ?a)
-)
-
 (deffunction isIntOrFloat (?n)
     (or (integerp ?n) (floatp ?n))
 )
@@ -11,7 +7,7 @@
 (deffunction cuentaAtras (?n)
   (if
     (or
-      (not (isValidNumber ?n))
+      (not (integerp ?n))
       (<= ?n 0)
     )
     then (printout t "El numero no es valido." crlf)
@@ -29,7 +25,7 @@
 (deffunction hasta (?n)
   (if
     (or
-      (not (isValidNumber ?n))
+      (not (integerp ?n))
       (<= ?n 0)
     )
     then (printout t "El numero no es valido." crlf)
@@ -38,7 +34,7 @@
 
   (bind ?contador 0)
   (while (not (= ?n ?contador))
-    (printout t ?contador)
+    (printout t " " ?contador)
     (bind ?contador (+ ?contador 1))
   )
   (printout t crlf)
@@ -48,12 +44,14 @@
 (deffunction sumatorio (?n)
   (if
     (or
-      (not (isValidNumber ?n))
-      (<= ?n 0)
+      (not (integerp ?n))
+      (< ?n 0)
     )
     then (printout t "El numero no es valido." crlf)
     (return)
   )
+
+  (if (= 0 ?n) then (return 0))
 
   (bind ?resultado 0)
   (while (not(= ?n 0))
@@ -62,6 +60,7 @@
   )
   (printout t ?resultado crlf)
 )
+
 
 (deffunction sumatorioRec (?n)
 
@@ -186,7 +185,7 @@
 (deffunction factorial (?n)
   (if
     (or
-      (not (isValidNumber ?n))
+      (not (integerp ?n))
       (< ?n 0)
     )
     then (printout t "El numero no es valido." crlf)
