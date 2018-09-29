@@ -19,6 +19,9 @@
 (deffunction isPrime(?num)
     (bind ?root (integer (sqrt ?num)))
     (bind ?prime TRUE)
+    (if (or (= ?num 0) (= ?num 1)) then
+        (return FALSE)
+    )
     (loop-for-count (?i 2 ?root)
         (if (= 0 (mod ?num ?i)) then
             (bind ?prime FALSE)
@@ -34,8 +37,6 @@
     (bind ?top (sub-string 1 (div ?digits 2) ?string))
     (bind ?bottom (sub-string (- (+ ?digits 1) (div ?digits 2)) ?digits ?string))
     (bind ?capi TRUE)
-    (printout t ?top crlf)
-    (printout t ?bottom crlf)
     (loop-for-count (?i 1 (div ?digits 2))
         (bind ?j (- (+ (div ?digits 2) 1) ?i))
         (bind ?d1 (sub-string ?i ?i ?top))
@@ -46,6 +47,21 @@
         )
     )
     (return ?capi)
+)
+
+(deffunction num_primos_y_capicua()
+    (bind ?num (read))
+    (if (not (isNaturalNumber ?num)) then
+        (printout t "Input no válido." crlf)
+        (return)
+    )
+    (bind $?res (create$))
+    (loop-for-count (?i 0 ?num)
+        (if (and (isPrime ?i) (isCapi ?i)) then
+            (bind ?res (insert$ $?res (+ 1 (length$ $?res)) ?i))
+        )
+    )
+    (return $?res)
 )
 
 ;13
