@@ -3,14 +3,54 @@
     (or (integerp ?n) (floatp ?n))
 )
 
+
+(deffunction allIntOrFloat (?v)
+  (bind ?result TRUE)
+  (foreach ?item ?v
+    (if (not (isIntOrFloat ?item)) then
+      (bind ?result FALSE)
+      (break)
+    )
+  )
+  (return ?result)
+)
+
+; como el in de python
+(deffunction in(?a ?b)
+  (if (not(multifieldp ?b)) then
+    (printout t "La segunda variable tiene que ser un multicampo." crlf)
+    (return)
+  )
+
+  (if (member$ ?a ?b) then
+    (return TRUE)
+    else (return FALSE)
+  )
+)
+
 ;1
-(deffunction dentro_del_rango (?nmin ?nmax)
+(deffunction dentroDelRango (?nmin ?nmax)
+  (if
+    (or
+      (not(isIntOrFloat ?nmin))
+      (not(isIntOrFloat ?nmax))
+    )
+  then
+  (printout t "Introduce un rango de numeros." crlf)
+  (return)
+  )
+
+  ; coger el pequeño y el mayor
+  (if (> ?nmin ?nmax) then
+    (bind ?naux ?nmin)
+    (bind ?nmin ?nmax)
+    (bind ?nmax ?naux)
+  )
+
   (printout t "Introduce un numero: ")
   (bind ?n (read))
   (while
     (or
-      (not(isIntOrFloat ?nmin))
-      (not(isIntOrFloat ?nmax))
       (not(isIntOrFloat ?n))
       (not(> ?n ?nmin))
       (not(< ?n ?nmax))
@@ -18,8 +58,8 @@
   (printout t "El numero no esta dentro del rango. Introduce otro: ")
   (bind ?n (read))
   )
+
   (printout t "Esta dentro del rango." crlf)
-  ;comprobar que son correctos
 )
 
 ;2
@@ -100,19 +140,6 @@
 )
 
 ;5
-; como el in de python
-(deffunction in(?a ?b)
-  (if (not(multifieldp ?b)) then
-    (printout t "La segunda variable tiene que ser un multicampo." crlf)
-    (return)
-  )
-
-  (if (member$ ?a ?b) then
-    (return TRUE)
-    else (return FALSE)
-  )
-)
-
 (deffunction mes(?n)
   (if
     (or
@@ -207,4 +234,65 @@
     (bind ?v (replace$ ?v ?item ?item ?nuevo))
   )
   (return ?v)
+)
+
+;9
+;(cartesiano (create$ a b)(create$ c d)) → (a c a d b c b d)
+(deffunction cartesiano (?a ?b)
+  (if
+    (or
+      (not(multifieldp ?a))
+      (not(multifieldp ?b))
+    )
+  then
+  (printout t "Introduce 2 variables multicampo." crlf)
+  (return)
+  )
+
+  (bind ?result (create$))
+
+  (progn$ (?aitem ?a)
+    (progn$ (?bitem ?b)
+      (bind ?result (insert$ ?result (+ (length$ ?result) 1) ?aitem))
+      (bind ?result (insert$ ?result (+ (length$ ?result) 1) ?bitem))
+    )
+  )
+  (return ?result)
+)
+
+;10
+;(escalar (create$ 2 3)(create$ 4 5)) → 2*4+3*5 → 23
+(deffunction escalar (?a ?b)
+  (if
+    (or
+      (not(multifieldp ?a))
+      (not(multifieldp ?b))
+      (= 0 (length ?a))
+      (= 0 (length ?b))
+      (not(= (length$ ?a) (length ?b)))
+      (not(allIntOrFloat ?a))
+      (not(allIntOrFloat ?b))
+    )
+  then
+  (printout t "Introduce 2 variables multicampo no vacías y de igual longitud compuestas de numeros." crlf)
+  (return)
+  )
+
+  (bind ?longitud (length$ ?a))
+  (bind ?contador 1)
+  (bind ?result 0)
+
+  (while (<= ?contador ?longitud)
+    (bind ?result (+ ?result
+
+                            (*
+                              (nth$ ?contador ?a)
+                              (nth$ ?contador ?b)
+                            )
+
+                  )
+    )
+    (bind ?contador (+ ?contador 1))
+  )
+  (return ?result)
 )
