@@ -79,7 +79,11 @@
 
 ;4
 (deffunction minimoMulti ($?n)
-  (bind ?loop_iniciado FALSE)
+  (if (= 0 (length$ ?n)) then
+    (printout t "Necesita parametros" crlf)
+    (return)
+  )
+
   (bind ?minimo (nth$ 1 ?n))
 
   (foreach ?item ?n
@@ -92,12 +96,16 @@
       (bind ?minimo ?item)
     )
   )
-  (printout t ?minimo crlf)
+  (return ?minimo)
 )
 
 ;5
 (deffunction maximoMulti ($?n)
-  (bind ?loop_iniciado FALSE)
+  (if (= 0 (length$ ?n)) then
+    (printout t "Necesita parametros" crlf)
+    (return)
+  )
+
   (bind ?maximo (nth$ 1 ?n))
 
   (foreach ?item ?n
@@ -115,7 +123,11 @@
 
 ;6
 (deffunction sumaMulti ($?n)
-  (bind ?loop_iniciado FALSE)
+  (if (= 0 (length$ ?n)) then
+    (printout t "Necesita parametros" crlf)
+    (return)
+  )
+
   (bind ?resultado 0)
 
   (foreach ?item ?n
@@ -123,27 +135,19 @@
       (printout t "Todos los elementos deben ser numeros." crlf)
       (return)
     )
+
     (bind ?resultado (+ ?resultado ?item))
   )
   (return ?resultado)
 )
 
 ;7
-(deffunction allValidNums ($?n)
-  (foreach ?item ?n
-    (if (not (isIntOrFloat ?item)) then
-      (return FALSE)
-    )
-  )
-  (return TRUE)
-)
-
-
 (deffunction mediaMulti ($?n)
-  (if (allValidNums ?n) then
-    (/ (sumaMulti ?n) (length$ ?n))
-  else (printout t "Todos los elementos deben ser numeros." crlf)
+  (if (= 0 (length$ ?n)) then
+    (printout t "Necesita parametros" crlf)
+    (return)
   )
+    (/ (sumaMulti ?n) (length$ ?n))
 )
 
 ;8
@@ -224,6 +228,7 @@
 
 ;11
 (deffunction fibonacci (?n)
+;TODO esto no es lo que pide
   (if (or (not(integerp ?n)) (< ?n 0)) then
     then (printout t "El numero no es valido." crlf)
     (return)
