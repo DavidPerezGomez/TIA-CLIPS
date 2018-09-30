@@ -138,7 +138,11 @@
 (deffunction mediaMulti ($?n)
   ;la comprobacion de si esta vacio el multicampo y
   ;si todos son numeros los hace sumaMulti
-  (/ (sumaMulti ?n) (length$ ?n))
+  (bind ?sum (sumaMulti ?n))
+  (if (or (integerp ?sum) (floatp ?sum))
+  then (return (/ ?sum (length$ ?n)))
+  else (return)
+  )
 )
 
 
