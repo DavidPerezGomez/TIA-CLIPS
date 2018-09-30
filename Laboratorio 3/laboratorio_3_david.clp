@@ -15,6 +15,33 @@
     (return ?i)
 )
 
+;10
+(deffunction escalar(?a ?b)
+    (if (or (not(multifieldp ?a)) (not(multifieldp ?b)))
+    then (printout t "Introduce 2 variables multicampo." crlf)
+       (return)
+    )
+    (if (not (= (length$ ?a) (length ?b)))
+    then (printout t "Los multicampos deben ser del mismo tamaño." crlf)
+       (return)
+    )
+    (bind ?res 0)
+    (loop-for-count (?i 1 (length$ ?a))
+        (bind ?tmp_a (nth$ ?i ?a))
+        (bind ?tmp_b (nth$ ?i ?b))
+        (if (not (and (isValidNumber ?tmp_a) (isValidNumber ?tmp_b)))
+        then (printout t "Todos los valores deben ser números." crlf)
+             (return)
+        )
+        (bind ?res (+ ?res (* ?tmp_a ?tmp_b)))
+    )
+    (return ?res)
+)
+
+;11
+; lo dejo sin hacer de momento, que no estoy totalmente seguro de como funciona
+; le pregunto a Ekaitz
+
 ;12
 (deffunction isPrime(?num)
     (bind ?root (integer (sqrt ?num)))
@@ -50,18 +77,19 @@
 )
 
 (deffunction num_primos_y_capicua()
+    (printout t "¿Cuántos números quieres comprobar?" crlf)
     (bind ?num (read))
     (if (not (isNaturalNumber ?num)) then
         (printout t "Input no válido." crlf)
         (return)
     )
-    (bind $?res (create$))
     (loop-for-count (?i 0 ?num)
         (if (and (isPrime ?i) (isCapi ?i)) then
-            (bind ?res (insert$ $?res (+ 1 (length$ $?res)) ?i))
+            (printout t ?i " ")
         )
     )
-    (return $?res)
+    (printout t "" crlf)
+    (return)
 )
 
 ;13
