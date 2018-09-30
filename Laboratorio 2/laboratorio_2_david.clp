@@ -123,8 +123,6 @@
 
 ;7
 (deffunction mediaMulti($?vector)
-    ;utilizar nth$ en lugar de first$
-    ;porque first$ devuelve un multicampo con un solo valor
     (bind ?sum (sumaMulti $?vector))
     (if (or (integerp ?sum) (floatp ?sum))
     then (return (/ ?sum (length$ $?vector)))

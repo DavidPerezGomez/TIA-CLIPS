@@ -15,7 +15,7 @@
   )
 
   (while (not (= ?n 0))
-    (printout t ?n)
+    (printout t ?n " ")
     (bind ?n (- ?n 1))
   )
   (printout t crlf)
