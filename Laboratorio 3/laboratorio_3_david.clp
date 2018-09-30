@@ -7,12 +7,32 @@
     (and (integerp ?a) (>= ?a 0))
 )
 
+(deffunction append(?a $?vector)
+    (return (insert$ ?vector (+ 1 (length $?vector)) ?a))
+)
+
 (deffunction digits(?num)
     (bind ?i 1)
     (while (not (= 0 (div ?num (** 10 ?i))))
         (bind ?i (+ ?i 1))
     )
     (return ?i)
+)
+
+;9
+(deffunction cartesiano(?a ?b)
+    (if (or (not(multifieldp ?a)) (not(multifieldp ?b)))
+    then (printout t "Introduce 2 variables multicampo." crlf)
+       (return)
+    )
+    (bind ?res (create$))
+    (foreach ?item_a ?a
+        (foreach ?item_b ?b
+            (bind $?res (append ?item_a $?res))
+            (bind $?res (append ?item_b $?res))
+        )
+    )
+    (return ?res)
 )
 
 ;10
