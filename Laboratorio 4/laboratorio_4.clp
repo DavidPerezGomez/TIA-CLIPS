@@ -9,14 +9,14 @@
 ; En el algotritmo de búsqueda, cada estado se almacena junto con sus estados anteriores
 ; "axby a2x2b2y2 a3x3b3y3..." donde a3x3b3y3 es padre de a2x2b2y2 que es padre de axby
 
+; Nota: cargar el documento varias veces en caso de error (por si acaso)
+
 ; TODO document
 
-(deffunction test(?state)
-    (printout t (get_children ?state) crlf)
-)
+(defglobal ?*state_ln* = 0)
 
 (deffunction main(?initial)
-    defglobal ?*state_ln* = (length ?initial)
+    (bind ?*state_ln* (length ?initial))
     ; variable global para guardar como de largo es el estado (depende del número de habitaciones)
     (if (not (is_legal ?initial))
     then (printout t "El estado no es válido." crlf)
