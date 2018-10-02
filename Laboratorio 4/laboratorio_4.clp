@@ -15,7 +15,7 @@
 
 (defglobal ?*state_ln* = 0)
 
-(deffunction main(?initial)
+(deffunction clean(?initial)
     (bind ?*state_ln* (length ?initial))
     ; variable global para guardar como de largo es el estado (depende del número de habitaciones)
     (if (not (is_legal ?initial))
