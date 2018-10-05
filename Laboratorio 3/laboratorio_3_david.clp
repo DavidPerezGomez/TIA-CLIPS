@@ -158,6 +158,7 @@
     (return ?capi)
 )
 
+; TODO dice que le des los X primeros, no del 0 al X, lo he corregido en la entrega
 (deffunction num_primos_y_capicua()
     (printout t "¿Cuántos números quieres comprobar?" crlf)
     (bind ?num (read))
@@ -175,6 +176,7 @@
 )
 
 ;13
+;TODO dice que tiene que pedir el numero por pantalla, no tiene que tener parametros, lo he corregido en la entrega
 (deffunction num_magico(?num)
     (if (not (isNaturalNumber ?num)) then
         (printout t "Input no válido." crlf)
@@ -198,7 +200,7 @@
 ; 14
 (deffunction esMedio(?num)
     (if (not (isNaturalNumber ?num)) then
-        (printout f "Input no válido." crlf)
+        (printout t "Input no válido." crlf)
         (return)
     )
     (bind ?below 0)
