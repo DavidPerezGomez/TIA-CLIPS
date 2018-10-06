@@ -3,46 +3,19 @@
 ; x: 0 -> primera habitación no tiene aspiradora; 1 -> primera habitación tiene aspiradora
 ; b: 0 -> segunda habitación limpia; 1 -> segunda habitación sucia
 ; y: 0 -> segunda habitación no tiene aspiradora; 1 -> segunda habitación tiene aspiradora
-; Un estado es correcto sí y solo sí x + y =
-; Un estado es final sí y solo sí a + b = 0
+; Un estado es correcto si y solo si x + y =
+; Un estado es final si y solo si a + b = 0
 
-; En el algotritmo de búsqueda, cada estado se almacena junto con sus estados anteriores
+; En el algoritmo de búsqueda, cada estado se almacena junto con sus estados anteriores
 ; "axby a2x2b2y2 a3x3b3y3..." donde a3x3b3y3 es padre de a2x2b2y2 que es padre de axby
 
 ; Nota: cargar el documento varias veces en caso de error (por si acaso)
 
+; Método principal: (aspiradora)
+
 ; TODO document
 
 (defglobal ?*state_ln* = 0)
-
-(deffunction clean(?initial)
-    (bind ?*state_ln* (length ?initial))
-    ; variable global para guardar como de largo es el estado (depende del número de habitaciones)
-    (if (not (is_legal ?initial))
-    then (printout t "El estado no es válido." crlf)
-         (return)
-    )
-    (if (is_final ?initial)
-    then (print_res ?initial)
-         (return)
-    )
-    (bind ?visited (create$))
-    (bind ?queue (create$ ?initial))
-    (bind ?current ?initial)
-    (while (not (is_final ?current))
-        (bind ?visited (append (sub-string 1 ?*state_ln* ?current) ?visited))
-        (bind ?queue (rest$ ?queue))
-        (bind ?children (get_children ?current))
-        (foreach ?child ?children
-            (if (not(in (sub-string 1 ?*state_ln* ?child) ?visited))
-            then (bind ?queue (append ?child ?queue))
-            )
-        )
-        (bind ?current (nth$ 1 ?queue))
-    )
-    (print_res ?current)
-    (return)
-)
 
 (deffunction append(?a $?vector)
     (if (not(multifieldp $?vector)) then
@@ -85,16 +58,6 @@
     (return (= 0 (+ ?a ?b)))
 )
 
-(deffunction get_children(?state)
-; returns a multifield with all the possible children states
-    (bind ?leaf (sub-string 1 ?*state_ln* ?state))
-    (bind $?res (create$))
-    (bind $?res (append (str-cat (move_left ?leaf) " " ?state) $?res))
-    (bind $?res (append (str-cat (move_right ?leaf) " " ?state) $?res))
-    (bind $?res (append (str-cat (succ ?leaf) " " ?state) $?res))
-    (return $?res)
-)
-
 (deffunction move_left(?state)
 ; returns resulting state after moving left
 ; always leaves the vaccum on the left room
@@ -115,8 +78,8 @@
     (return ?res)
 )
 
-(deffunction succ(?state)
-; returns resulting state after succking
+(deffunction clean(?state)
+; returns resulting state after cleaning
     (if (= 1 (string-to-field (sub-string 2 2 ?state)))
     then
     ; vaccum is in left room
@@ -131,4 +94,43 @@
         (bind ?res (str-cat ?res "01"))
         (return ?res)
     )
+)
+
+(deffunction get_children(?state)
+; returns a multifield with all the possible children states
+    (bind ?leaf (sub-string 1 ?*state_ln* ?state))
+    (bind $?res (create$))
+    (bind $?res (append (str-cat (move_left ?leaf) " " ?state) $?res))
+    (bind $?res (append (str-cat (move_right ?leaf) " " ?state) $?res))
+    (bind $?res (append (str-cat (clean ?leaf) " " ?state) $?res))
+    (return $?res)
+)
+
+(deffunction aspiradora(?initial)
+    (bind ?*state_ln* (length ?initial))
+    ; variable global para guardar como de largo es el estado (depende del número de habitaciones)
+    (if (not (is_legal ?initial))
+    then (printout t "El estado no es válido." crlf)
+         (return)
+    )
+    (if (is_final ?initial)
+    then (print_res ?initial)
+         (return)
+    )
+    (bind ?visited (create$))
+    (bind ?queue (create$ ?initial))
+    (bind ?current ?initial)
+    (while (not (is_final ?current))
+        (bind ?visited (append (sub-string 1 ?*state_ln* ?current) ?visited))
+        (bind ?queue (rest$ ?queue))
+        (bind ?children (get_children ?current))
+        (foreach ?child ?children
+            (if (not(in (sub-string 1 ?*state_ln* ?child) ?visited))
+            then (bind ?queue (append ?child ?queue))
+            )
+        )
+        (bind ?current (nth$ 1 ?queue))
+    )
+    (print_res ?current)
+    (return)
 )
