@@ -378,10 +378,10 @@
 ;12
 (deffunction isPrime(?num)
     (bind ?root (integer (sqrt ?num)))
-    (bind ?prime TRUE)
     (if (or (= ?num 0) (= ?num 1)) then
         (return FALSE)
     )
+    (bind ?prime TRUE)
     (loop-for-count (?i 2 ?root)
         (if (= 0 (mod ?num ?i)) then
             (bind ?prime FALSE)
@@ -410,14 +410,13 @@
 )
 
 (deffunction num_primos_y_capicua()
-    (printout t "Cuantos numeros quieres comprobar?" crlf)
+    (printout t "Cuantos numeros quieres obtener?" crlf)
     (bind ?num (read))
     (if (not (isNaturalNumber ?num)) then
         (printout t "Input no valido." crlf)
         (return)
     )
     (bind ?ya_calculados 0)
-
     (bind ?i 0)
     (while (< ?ya_calculados ?num)
         (if (and (isPrime ?i) (isCapi ?i)) then
@@ -439,8 +438,8 @@
         (return)
     )
     (bind ?res ?num)
-    (while (not (and (not (= 0 ?res)) (= 0(div ?res 10))))
-    ; salir cuando res!=0 y res sea de un dígito (res / 10 = 0)
+    (while (or (= 0 ?res) (not (= 0 (div ?res 10))))
+    ; salir cuando res!=0 y res sea de un solo dígito (res / 10 = 0)
         (bind ?tmp 0)
         (bind ?d 1)
         (bind ?max_pow (digits ?res))
