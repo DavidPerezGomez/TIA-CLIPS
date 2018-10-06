@@ -243,7 +243,7 @@
   (bind ?posiciones (create$))
   (bind ?contador 1)
   (progn$ (?item ?v)
-    (if (= (str-compare ?item ?objetivo) 0) then
+    (if (= (str-compare (str-cat ?item) (str-cat ?objetivo)) 0) then
       (bind ?posiciones (insert$ ?posiciones (+ (length$ ?posiciones) 1) ?contador))
     )
     (bind ?contador (+ ?contador 1))
