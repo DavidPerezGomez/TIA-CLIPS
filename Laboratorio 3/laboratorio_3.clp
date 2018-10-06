@@ -240,6 +240,16 @@
 ;(sustituir a b (create$ b a e)) → (b b e)
 (deffunction sustituir (?objetivo ?nuevo ?v)
 ;(replace$ <expresiónMultiC><inicio><fin><PorEstaExpresiónMultiC|Simple>)
+  (if
+    (or
+      (not(multifieldp ?v))
+      (multifieldp ?objetivo)
+      (multifieldp ?nuevo)
+    )
+  then
+  (printout t "Los parametros no son correctos" crlf)
+  (return)
+  )
   (bind ?posiciones (create$))
   (bind ?contador 1)
   (progn$ (?item ?v)
