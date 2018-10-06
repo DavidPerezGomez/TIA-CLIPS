@@ -233,11 +233,7 @@
   (return)
   )
 
-  (progn$ (?item ?b)
-    (bind ?a (insert$ ?a (+ (length$ ?a) 1) ?item))
-  )
-
-  (return ?a)
+  (return (append ?b ?a))
 )
 
 ;8
