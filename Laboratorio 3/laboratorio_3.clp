@@ -54,9 +54,10 @@
     (or
       (not(isIntOrFloat ?nmin))
       (not(isIntOrFloat ?nmax))
+      (= ?nmin ?nmax)
     )
   then
-  (printout t "Introduce un rango de numeros." crlf)
+  (printout t "Introduce un rango de numeros distintos." crlf)
   (return)
   )
 
