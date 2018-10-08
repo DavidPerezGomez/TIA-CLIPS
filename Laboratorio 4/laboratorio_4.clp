@@ -37,21 +37,6 @@
     )
 )
 
-; given a state, prints on screen each of the state's parents, oldest to newest
-; and then the state itself
-; i.e.: (print_res "0001 0011 0110 1110")
-; > 1110
-; > 0110
-; > 0011
-; > 0001
-(deffunction print_res(?state)
-    (bind ?i (length ?state))
-    (while (> ?i 0)
-        (printout t (sub-string (- ?i ?*state_ln* -1) ?i ?state) crlf)
-        (bind ?i (- ?i ?*state_ln* 1))
-    )
-)
-
 ; returns TRUE if the given state is legal (correct). FALSE otherwise
 (deffunction is_legal(?state)
     (bind ?leaf (sub-string 1 ?*state_ln* ?state))
@@ -66,6 +51,57 @@
     (bind ?a (string-to-field(sub-string 1 1 ?leaf)))
     (bind ?b (string-to-field(sub-string 3 3 ?leaf)))
     (return (= 0 (+ ?a ?b)))
+)
+
+; returns the action needed to go from state_i to state_f
+; i.e.: (action_taken "1100" "0100")
+; > Aspirar 
+(deffunction action_taken(?state_i ?state_f)
+    (bind ?action_left "Moverse Izquierda")
+    (bind ?action_right "Moverse Derecha")
+    (bind ?action_clean "Aspirar")
+    (if (not
+            (and
+                (= 0
+                    (str-compare (sub-string 1 1 ?state_i) (sub-string 1 1 ?state_f))
+                )
+                (= 0
+                    (str-compare (sub-string 3 3 ?state_i) (sub-string 3 3 ?state_f))
+                )
+            )
+        )
+    then (return ?action_clean)
+    )
+    (if (= 1 (string-to-field (sub-string 4 4 ?state_f)))
+    then (return ?action_right)
+    else (return ?action_left)
+    )
+)
+
+; given a state, prints on screen each of the state's parents, oldest to newest
+; and then the state itself
+; i.e.: (print_res "0001 0011 0110 1110")
+; > 1110
+; > 0110
+; > 0011
+; > 0001
+(deffunction print_res(?state)
+    (bind ?i (length ?state))
+    (bind $?vector (create$))
+    (while (> ?i 0)
+        (bind $?vector (append (sub-string (- ?i ?*state_ln* -1) ?i ?state) ?vector))
+        (bind ?i (- ?i ?*state_ln* 1))
+    )
+    (bind ?state_aux_1 "")
+    (bind ?state_aux_2 "")
+    (bind ?i 1)
+    (while (< ?i (length$ $?vector))
+        (bind ?str (nth$ ?i $?vector))
+        (bind ?str (str-cat ?str " -> " (action_taken (nth$ ?i $?vector) (nth$ (+ ?i 1) $?vector))))
+        (bind ?str (str-cat ?str " -> " (nth$ (+ ?i 1) $?vector)))
+        (bind ?i (+ ?i 1))
+        (printout t ?str crlf)
+    )
 )
 
 ; returns resulting state after moving left
