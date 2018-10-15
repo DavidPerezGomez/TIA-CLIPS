@@ -62,7 +62,6 @@
 ; returns TRUE if the given state is final. FALSE otherwise
 (deffunction is_final(?state)
     (bind ?leaf (sub-string 1 ?*state_ln* ?state))
-    (printout t ?leaf crlf)
     (return (= 0 (string-to-field ?leaf)))
 )
 
@@ -94,7 +93,6 @@
         (bind $?vector (append (sub-string (- ?i (+ ?*state_ln* 1) -1) ?i ?state) ?vector))
         (bind ?i (- ?i (+ ?*state_ln* 3) -1))
     )
-    (printout t $?vector crlf)
     (bind ?state_aux_1 "")
     (bind ?state_aux_2 "")
     (bind ?i 1)
@@ -171,10 +169,9 @@
     (bind ?leaf (sub-string 1 ?*state_ln* ?state))
     (bind $?res (create$))
     (loop-for-count (?i 0 3)
-        (bind ?result (apply_movement ?state ?i))
-        (if (and ?result (not (is_game_over ?result)))
-        ; TODO aqui a veces no entra npi
-        then (bind $?res (append (str-cat ?result " " ?i ?state)))
+        (bind ?child (apply_movement ?state ?i))
+        (if (and ?child (not (is_game_over ?child)))
+        then (bind $?res (append $?res (str-cat ?child " " ?i ?state)))
         )
     )
     (return $?res)
@@ -210,7 +207,6 @@
             )
         )
         ; advance to next state in the queue
-        (printout t ?stack crlf)
         (bind ?current (nth$ 1 ?stack))
     )
     (print_res ?current)
