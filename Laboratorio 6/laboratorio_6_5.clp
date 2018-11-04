@@ -35,7 +35,7 @@
     ?prev <- (cuenta ?n ?c ?d ?val)
     =>
     (bind ?avg (/ ?d ?val))
-    (printout t ?n ", " ?c ": " ?avg " (" ?d ", " ?val ")" crlf)
+    (printout t "La duración media de las actividades de " ?n " fue " ?avg crlf)
     (retract ?prev)
 )
 
