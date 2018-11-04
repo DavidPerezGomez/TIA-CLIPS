@@ -2,6 +2,7 @@
 	(declare (salience 10))
 	(elemento ?x)
 	(elemento ?y)
+    (test (= ?x ?y))
 =>
 	(assert (elemento (+ ?x ?y)))
 	(printout t (+ ?x ?y) crlf))
@@ -14,4 +15,4 @@
 	(halt))
 
 (deffacts hechos-iniciales
-	(elemento 1)) 
+	(elemento 1))
