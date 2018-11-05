@@ -30,7 +30,7 @@
 )
 
 (defrule R3
-    (declare (salience 20))
+    (declare (salience 0))
     (persona (nombre ?n) (ciudad ?c))
     ?prev <- (cuenta ?n ?c ?d ?val)
     =>
