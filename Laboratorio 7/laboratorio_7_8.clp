@@ -32,6 +32,13 @@
     (assert (interseccion (intersection $?a1 $?a2)))
 )
 
+(defrule print
+    (interseccion $?i)
+    =>
+    (printout t $?i crlf)
+    (halt)
+)
+
 (deffacts init
     (array a b c d e)
     (array g f c b a)

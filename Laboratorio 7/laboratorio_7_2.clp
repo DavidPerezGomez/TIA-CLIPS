@@ -24,6 +24,7 @@
     (maximo ?m)
     =>
     (printout t "El máximo es " ?m crlf)
+    (halt)
 )
 
 (deffacts init
