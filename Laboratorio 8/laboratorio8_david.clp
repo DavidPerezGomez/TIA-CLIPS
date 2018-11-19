@@ -63,13 +63,15 @@
     (estado
         (id ?id)
         (id_anterior ?id_ant)
+        (cantidad_j1 ?cant1)
+        (cantidad_j2 ?cant2)
         (movimiento ?mov)
     )
     (test (eq ?id_fin ?id))
     =>
     (if (not (eq ?id ?id_ant))
     ; queda más camino por recorrer
-    then (bind ?*camino* (prepend ?mov ?*camino*))
+    then (bind ?*camino* (prepend (str-cat ?mov " (" ?cant1 " | " ?cant2 ")" ) ?*camino*))
          (retract ?fin)
          (assert (fin ?id_ant))
     ; final del camino
@@ -302,15 +304,15 @@
     (estado
         (id 0)
         (id_anterior 0)
-        (capacidad_j1 4)
+        (capacidad_j1 34)
         (cantidad_j1 0)
-        (capacidad_j2 2)
+        (capacidad_j2 13)
         (cantidad_j2 0)
     )
     (creado
-        (capacidad_j1 4)
+        (capacidad_j1 34)
         (cantidad_j1 0)
-        (capacidad_j2 2)
+        (capacidad_j2 13)
         (cantidad_j2 0)
     )
 )
