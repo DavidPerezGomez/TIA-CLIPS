@@ -19,6 +19,11 @@
   (multislot negras)
 )
 
+(deffunction cambiar_turno()
+    (bind ?*TURNO* (not ?*TURNO*))
+    (return ?*TURNO*)
+)
+
 ; crea una linea de fichas donde ?x e ?y son las
 ; coordenadas de la primera ficha por la izquierda
 (deffunction JUEGO::crear_linea (?x ?y)
@@ -56,7 +61,28 @@
     (assert(tablero (blancas ?blancas) (negras ?negras)))
 )
 
+(deffunction JUEGO::print_tablero (?x ?y)
+    (printout t "Imprimiendo tablero: " crlf)
+    (bind ?negras ?x)
+    (bind ?blancas ?y)
+    (bind ?longnegras (length$ ?negras))
+    (bind ?longblancas (length$ ?blancas))
+    (printout t "longnegras: " ?longnegras crlf)
+    (printout t "longblancas: " ?longblancas crlf)
+
+    (bind ?v ?*DIM*)
+    (while (> ?v 0)
+        (loop-for-count (?i 1 ?*DIM*)
+            (bind ?variable (nth ?i ?negras))
+            (printout t ?variable "variable")
+            (printout t "N" ?v ?i  " "))
+            (bind ?v (- ?v 1))
+        (printout t crlf)
+    )
+)
+
 (defrule JUEGO::iniciar_tablero
+    (declare (salience 100))
     ?f <- (inicializacion)
 =>
     (retract ?f)
@@ -65,8 +91,9 @@
 
 (defrule JUEGO::test
     (declare (salience 10))
-    (foo)
+    ?f <- (foo)
     =>
+    (retract ?f)
     (printout t "tamaño: " ?*DIM* " | turno: " ?*COLOR_J* crlf)
 )
 
