@@ -19,7 +19,7 @@
 (deffunction crear_linea (?x ?y)
   (bind ?result "")
   (bind ?result (str-cat "N" ?x ?y))
-  (loop-for-count (?i ?x (- ?*DIM* 1)) ; TODO dim -1 igual
+  (loop-for-count (?i ?x (- ?*DIM* 1))
     (if (eq 0 (mod ?i 2)) then
       (bind ?result (str-cat ?result " N" (+ ?x ?i) ?y))
     )
