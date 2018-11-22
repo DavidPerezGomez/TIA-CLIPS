@@ -7,6 +7,8 @@
     ?*DIM* = 8 ; tamaño del tablero
     ?*TURNO* = TRUE ; turno actual. TRUE: blancas; FALSE: negras
     ?*COLOR_J* = TRUE ; color del jugador. TRUE: blancas; FALSE: negras
+    ?*PIEZA_NORMAL* = "N"
+    ?*DAMA* = "D"
     ?*SYM_B* = "o" ; simbolo para las blancas
     ?*SYM_N* = "x" ; simbolo para negras
     ?*SYM_V* = " " ; simbolo para el vacio
@@ -28,7 +30,7 @@
 ; coordenadas de la primera ficha por la izquierda
 (deffunction JUEGO::crear_linea (?x ?y)
     (bind ?result "")
-    (bind ?result (str-cat "N" ?x ?y))
+    (bind ?result (str-cat ?*PIEZA_NORMAL* ?x ?y))
     (loop-for-count (?i ?x (- ?*DIM* 1))
         (if (eq 0 (mod ?i 2)) then
             (bind ?result (str-cat ?result " N" (+ ?x ?i) ?y))
