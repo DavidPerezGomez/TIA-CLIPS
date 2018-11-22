@@ -9,6 +9,7 @@
     ?*COLOR_J* = TRUE ; color del jugador. TRUE: blancas; FALSE: negras
     ?*PIEZA_NORMAL* = "N"
     ?*DAMA* = "D"
+    ?*MOV_FORZADO* = FALSE
     ?*SYM_B* = "o" ; simbolo para las blancas
     ?*SYM_N* = "x" ; simbolo para negras
     ?*SYM_V* = " " ; simbolo para el vacio
@@ -21,9 +22,29 @@
   (multislot negras)
 )
 
-(deffunction cambiar_turno()
+(deffunction JUEGO::in(?item $?vector)
+    (if (member$ ?item $?vector) then
+        (return TRUE)
+    else
+        (return FALSE)
+    )
+)
+
+(deffunction JUEGO::last($?vector)
+    (return (nth$ (length$ $?vector) $?vector))
+)
+
+(deffunction JUEGO::append(?a $?vector)
+    (return (insert$ $?vector (+ 1 (length $?vector)) ?a))
+)
+
+(deffunction JUEGO::cambiar_turno()
     (bind ?*TURNO* (not ?*TURNO*))
     (return ?*TURNO*)
+)
+
+(deffunction JUEGO::is_in_board(?x ?y)
+    (return (and (> ?x 0) (> ?y 0) (<= ?x ?*DIM*) (<= ?y ?*DIM*)))
 )
 
 ; crea una linea de fichas donde ?x e ?y son las
@@ -81,6 +102,132 @@
     )
 )
 
+; devuelve los posibles movimientos de una pieza normal
+; direccion -> 1 si sube (blancas); -1 si baja (negras)
+; devuelve un multicampo en el que cada valor es un movimiento posible
+; cada movimiento viene en forma de string
+; si el movimiento es simple (no se come) la string son solo las coordenadas del destino
+; > "24" (se mueve a (4,6))
+; si en el movimiento se captura a otra pieza, la string contiene las coordenadas
+; de la pieza capturada y del destino separadas por un espacio
+; > "35 46" (captura la pieza en (3,5) y se mueve a (4,6))
+(deffunction JUEGO::mov_pieza_normal(?x ?y ?direccion ?atacantes ?defendientes)
+    (bind ?mov (create$))
+    (bind ?posiciones (create$
+        (sym-cat (- ?x 1) (+ ?y ?direccion))
+        (sym-cat (+ ?x 1) (+ ?y ?direccion))))
+    ; miramos en las posiciones básicas
+    (foreach ?pos ?posiciones
+        (bind ?pos_x (string-to-field (sub-string 1 1 ?pos)))
+        (bind ?pos_y (string-to-field (sub-string 2 2 ?pos)))
+        ; comprobamos que está dentro del tablero
+        (if (is_in_board ?pos_x ?pos_y) then
+            ; creamos las posibles piezas que podrían estar en esa posición
+            (bind ?posibles_piezas (create$
+                (sym-cat ?*PIEZA_NORMAL* ?pos_x ?pos_y)
+                (sym-cat ?*DAMA* ?pos_x ?pos_y)))
+            (bind ?ocupada FALSE)
+            ; si está en las enemigas
+            (foreach ?posible_pieza ?posibles_piezas
+                (if (in ?posible_pieza ?defendientes) then
+                    (bind ?ocupada TRUE)
+                    (break)
+                )
+            )
+            (if ?ocupada then
+                ; se mira en la siguiente posición
+                (bind ?dif_x (- ?pos_x ?x))
+                (bind ?dif_y (- ?pos_y ?y))
+                (bind ?sig_pos_x (+ ?pos_x ?dif_x))
+                (bind ?sig_pos_y (+ ?pos_y ?dif_y))
+                ; comprobamos que está dentro del tablero
+                (if (is_in_board ?sig_pos_x ?sig_pos_y) then
+                    ; creamos las posibles piezas que podrían estar en esa posición
+                    (bind ?sig_posibles_piezas (create$
+                        (str-cat ?*PIEZA_NORMAL* ?sig_pos_x ?sig_pos_y)
+                        (str-cat ?*DAMA* ?sig_pos_x ?sig_pos_y)))
+                    (bind ?sig_ocupada FALSE)
+                    ; si no está en las aliadas o en las enemigas
+                    (foreach ?sig_posible_pieza ?sig_posibles_piezas
+                        (if (or (in ?sig_posible_pieza ?defendientes)
+                                (in ?sig_posible_pieza ?atacantes)) then
+                            (bind ?sig_ocupada TRUE)
+                            (break)
+                        )
+                    )
+                    (if (not ?sig_ocupada) then
+                        ; la casilla está vacía
+                        ; se captura la pieza intermedia
+                        (if (not ?*MOV_FORZADO*) then
+                            ; si los movimientos anteriores no están forzados
+                            ; se vacía la lista de movimientos
+                            (bind ?mov (create$))
+                            (bind ?*MOV_FORZADO* TRUE)
+                        )
+                        (bind ?mov (append (str-cat
+                        ?pos_x ?pos_y " " ?sig_pos_x ?sig_pos_y) ?mov))
+                        ; else
+                            ; la casilla está ocupada
+                            ; no se puede mover; no se hace nada
+                    )
+                )
+            ; si no está en las enemigas
+            else
+                ; ni en las aliadas
+                (bind ?ocupada FALSE)
+                (foreach ?posible_pieza ?posibles_piezas
+                    (if (in ?posible_pieza ?atacantes) then
+                        (bind ?ocupada TRUE)
+                        (break)
+                    )
+                )
+                (if (not ?ocupada) then
+                    ; movimiento normal
+                    ; se añade si no hay algún movimiento forzado
+                    (if (not ?*MOV_FORZADO*) then
+                        (bind ?mov (append (str-cat ?pos_x ?pos_y) ?mov))
+                    )
+                )
+            )
+        )
+    )
+    (return ?mov)
+)
+
+; hace que me quiera tirar por la ventana
+; devuelve depresión
+(deffunction JUEGO::mov_dama(?x ?y ?direccion ?atacantes ?defendientes)
+    (return (create$))
+)
+
+; aún no se que quiero hacer aquí exactamente
+(deffunction JUEGO::movimientos(?blancas ?negras ?juegan_blancas)
+    (bind ?*MOV_FORZADO* FALSE)
+    (if ?juegan_blancas then
+        (bind ?atacantes ?blancas)
+        (bind ?defendientes ?negras)
+        (bind ?direccion 1)
+    else
+        (bind ?atacantes ?negras)
+        (bind ?defendientes ?blancas)
+        (bind ?direccion -1)
+    )
+    (bind ?movimientos)
+    (foreach ?pieza ?atacantes
+        (bind ?prev_forzado ?*MOV_FORZADO*)
+        (bind ?tipo (sub-string 1 1 ?pieza))
+        (bind ?x (string-to-field (sub-string 2 2 ?pieza)))
+        (bind ?y (string-to-field (sub-string 3 3 ?pieza)))
+        (if (eq ?tipo ?*PIEZA_NORMAL*) then
+            (bind ?mov (mov_pieza_normal ?x ?y ?direccion ?atacantes ?defendientes))
+            (printout t ?x ", " ?y crlf)
+            (printout t ?mov crlf)
+            (printout t "forzado -> " ?*MOV_FORZADO* crlf)
+        ; else (if (eq ?tipo ?*DAMA*) then
+        );)
+    )
+)
+
 (defrule JUEGO::iniciar_tablero
     (declare (salience 100))
     ?f <- (inicializacion)
@@ -89,8 +236,15 @@
     (crear_tablero)
 )
 
+(defrule JUEGO::turno
+    (declare (salience 50))
+    ?t <- (tablero (blancas $?b) (negras $?n))
+    =>
+    (movimientos $?b $?n ?*TURNO*)
+)
+
 (defrule JUEGO::test
-    (declare (salience 10))
+    (declare (salience 90))
     (tablero (blancas $?b) (negras $?n))
     =>
     (print_tablero $?b $?n)
