@@ -1,6 +1,17 @@
-(defmodule INICIO (export defglobal tamaño))
+(defmodule MAIN (export deftemplate foo))
 
-(defglobal ?*tamaño* = 8)
+(deftemplate foo
+    (slot bar)
+)
+
+(defrule MAIN::inicio
+    =>
+    (assert (foo (bar 0)))
+    (focus INICIO)
+    )
+
+(defmodule INICIO (export defglobal tamaño) (import MAIN deftemplate foo))
+(defglobal INICIO ?*tamaño* = 8)
 
 (deffunction INICIO::pedir_param()
     (bind ?tamaño -1)
@@ -13,6 +24,7 @@
 
 (defrule INICIO::pedir_param
     (declare (salience 10))
+    (foo)
     =>
     (pedir_param)
     (focus FOO)
@@ -26,9 +38,4 @@
     =>
     (printout t ?*tamaño* crlf)
     (return)
-)
-
-(defrule MAIN::inicio
-    =>
-    (focus INICIO)
 )
