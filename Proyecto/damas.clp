@@ -61,10 +61,8 @@
     (assert(tablero (blancas ?blancas) (negras ?negras)))
 )
 
-(deffunction JUEGO::print_tablero (?x ?y)
+(deffunction JUEGO::print_tablero (?blancas ?negras)
     (printout t "Imprimiendo tablero: " crlf)
-    (bind ?negras ?x)
-    (bind ?blancas ?y)
     (bind ?longnegras (length$ ?negras))
     (bind ?longblancas (length$ ?blancas))
     (printout t "longnegras: " ?longnegras crlf)
@@ -91,14 +89,12 @@
 
 (defrule JUEGO::test
     (declare (salience 10))
-    ?f <- (foo)
+    (tablero (blancas $?b) (negras $?n))
     =>
-    (retract ?f)
-    (printout t "tamaño: " ?*DIM* " | turno: " ?*COLOR_J* crlf)
+    (print_tablero $?b $?n)
 )
 
 (deffacts JUEGO::inicializacion
-    (foo)
     (inicializacion)
 )
 
