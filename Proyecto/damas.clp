@@ -38,6 +38,10 @@
     (return (insert$ $?vector (+ 1 (length $?vector)) ?a))
 )
 
+(deffunction JUEGO::prepend(?a $?vector)
+    (return (insert$ $?vector 1 ?a))
+)
+
 (deffunction JUEGO::cambiar_turno()
     (bind ?*TURNO* (not ?*TURNO*))
     (return ?*TURNO*)
@@ -103,11 +107,13 @@
 )
 
 ; devuelve los posibles movimientos de una pieza normal
+; solamente se tiene en cuenta un salto, aunque sea posible hacer varios
 ; direccion -> 1 si sube (blancas); -1 si baja (negras)
 ; devuelve un multicampo en el que cada valor es un movimiento posible
 ; cada movimiento viene en forma de string
+; si no se puede mover, el multicampo estará vacío
 ; si el movimiento es simple (no se come) la string son solo las coordenadas del destino
-; > "24" (se mueve a (4,6))
+; > "24" (se mueve a (2,4))
 ; si en el movimiento se captura a otra pieza, la string contiene las coordenadas
 ; de la pieza capturada y del destino separadas por un espacio
 ; > "35 46" (captura la pieza en (3,5) y se mueve a (4,6))
@@ -144,8 +150,8 @@
                 (if (is_in_board ?sig_pos_x ?sig_pos_y) then
                     ; creamos las posibles piezas que podrían estar en esa posición
                     (bind ?sig_posibles_piezas (create$
-                        (str-cat ?*PIEZA_NORMAL* ?sig_pos_x ?sig_pos_y)
-                        (str-cat ?*DAMA* ?sig_pos_x ?sig_pos_y)))
+                        (sym-cat ?*PIEZA_NORMAL* ?sig_pos_x ?sig_pos_y)
+                        (sym-cat ?*DAMA* ?sig_pos_x ?sig_pos_y)))
                     (bind ?sig_ocupada FALSE)
                     ; si no está en las aliadas o en las enemigas
                     (foreach ?sig_posible_pieza ?sig_posibles_piezas
@@ -200,7 +206,15 @@
     (return (create$))
 )
 
-; aún no se que quiero hacer aquí exactamente
+; devuelve un multicampo en el que cada valor es una string representando
+; el movimiento de una pieza
+; en cada string, el primer valor son las coordenadas de la pieza
+; el último valor son las cordenadas a las que se mueve
+; y el valor intermedio (si lo hubiera) son las coordenadas de la
+; pieza que captura
+; solo se tiene en cuenta un salto en cada movimiento aunque pudiese
+; haber más
+; > ("13 24" "33 24" "33 44" "53 44" "53 64" "73 64" "73 84")
 (deffunction JUEGO::movimientos(?blancas ?negras ?juegan_blancas)
     (bind ?*MOV_FORZADO* FALSE)
     (if ?juegan_blancas then
@@ -212,7 +226,7 @@
         (bind ?defendientes ?blancas)
         (bind ?direccion -1)
     )
-    (bind ?movimientos)
+    (bind ?movimientos (create$))
     (foreach ?pieza ?atacantes
         (bind ?prev_forzado ?*MOV_FORZADO*)
         (bind ?tipo (sub-string 1 1 ?pieza))
@@ -220,11 +234,51 @@
         (bind ?y (string-to-field (sub-string 3 3 ?pieza)))
         (if (eq ?tipo ?*PIEZA_NORMAL*) then
             (bind ?mov (mov_pieza_normal ?x ?y ?direccion ?atacantes ?defendientes))
-            (printout t ?x ", " ?y crlf)
-            (printout t ?mov crlf)
-            (printout t "forzado -> " ?*MOV_FORZADO* crlf)
+            (if (and ?*MOV_FORZADO* (not ?prev_forzado)) then
+                (bind ?movimientos (create$))
+                (bind ?prev_forzado ?*MOV_FORZADO*)
+            )
+            (if (eq ?prev_forzado ?*MOV_FORZADO*) then
+                (foreach ?m ?mov
+                    (bind ?mov_completo (str-cat ?x ?y " " ?m))
+                    (bind ?movimientos (append ?mov_completo ?movimientos))
+                )
+            )
         ; else (if (eq ?tipo ?*DAMA*) then
         );)
+    )
+)
+
+(deffunction JUEGO::pedir_mov(?blancas ?negras)
+    (bind ?pos_mov (movimientos ?blancas ?negras ?*TURNO*))
+    (while TRUE
+        (print_tablero ?blancas ?negras)
+        (printout t "¿Qué pieza quieres mover? xy: ")
+        (bind ?pieza (str-cat (read)))
+        (printout t (length ?pieza))
+        (if (eq (length ?pieza) 3) then
+            (bind ?pieza (str-cat (sub-string 1 1 ?pieza) (sub-string 3 3 ?pieza)))
+        )
+        (bind ?pieza_correcta FALSE)
+        (foreach ?mov ?pos_mov
+            (if (eq (sub-string 1 2 ?mov) ?pieza) then
+                (bind ?pieza_correcta TRUE)
+                (break)
+            )
+        )
+        (if ?pieza_correcta then
+            (printout t "¿A que posición quieres moverla? xy: ")
+            (bind ?posicion (str-cat (read)))
+            (if (eq (length ?posicion) 3) then
+                (bind ?posicion (str-cat (sub-string 1 1 ?posicion) (sub-string 3 3 ?posicion)))
+            )
+            (foreach ?mov ?pos_mov
+                (bind ?long (length ?mov))
+                (if (eq (sub-string (- ?long 1) ?long ?mov) ?posicion) then
+                    (return ?mov)
+                )
+            )
+        )
     )
 )
 
@@ -240,15 +294,16 @@
     (declare (salience 50))
     ?t <- (tablero (blancas $?b) (negras $?n))
     =>
-    (movimientos $?b $?n ?*TURNO*)
+    (bind ?mov (pedir_mov $?b $?n))
+    (printout t ?mov crlf)
 )
 
-(defrule JUEGO::test
-    (declare (salience 90))
-    (tablero (blancas $?b) (negras $?n))
-    =>
-    (print_tablero $?b $?n)
-)
+; (defrule JUEGO::test
+;     (declare (salience 90))
+;     (tablero (blancas $?b) (negras $?n))
+;     =>
+;     (print_tablero $?b $?n)
+; )
 
 (deffacts JUEGO::inicializacion
     (inicializacion)
