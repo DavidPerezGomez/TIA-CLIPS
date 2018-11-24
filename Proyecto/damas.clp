@@ -22,6 +22,12 @@
   (multislot negras)
 )
 
+; estado de tablero para multiples movimientos
+(deftemplate JUEGO::tablero_tmp
+  (multislot blancas)
+  (multislot negras)
+)
+
 (deffunction JUEGO::in(?item $?vector)
     (if (member$ ?item $?vector) then
         (return TRUE)
@@ -103,6 +109,75 @@
             (printout t "N" ?v ?i  " "))
             (bind ?v (- ?v 1))
         (printout t crlf)
+    )
+)
+
+; aplica el movimiento ?mov al tablero formado por ?blancas y ?negras
+; genera un nuevo par de vectores de blancas y negras y los utiliza
+; para crear un nuevo estado tablero
+; devuelve el identificador del nuevo estado
+(deffunction JUEGO::aplicar_movimiento(?blancas ?negras ?mov ?color)
+    (bind ?long (length ?mov))
+    (bind ?pos_pieza (sub-string 1 2 ?mov))
+    (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
+    (bind ?encontrada FALSE)
+    (if ?color then
+        (bind ?aliadas ?blancas)
+        (bind ?nuevas_aliadas ?blancas)
+        (bind ?enemigas ?negras)
+        (bind ?nuevas_enemigas ?negras)
+    else
+        (bind ?aliadas ?negras)
+        (bind ?nuevas_aliadas ?negras)
+        (bind ?enemigas ?blancas)
+        (bind ?nuevas_enemigas ?blancas)
+    )
+    (bind ?index 0)
+    (loop-for-count (?i 1 (length$ ?aliadas))
+        (bind ?pieza (nth$ ?i ?aliadas))
+        (bind ?tipo (sub-string 1 1 ?pieza))
+        (bind ?pos (sub-string 2 3 ?pieza))
+        (if (eq ?pos_pieza ?pos) then
+            (bind ?nueva_pieza (sym-cat ?tipo ?pos_destino))
+            (bind ?index ?i)
+            (bind ?encontrada TRUE)
+            (break)
+        )
+    )
+    (if ?encontrada then
+        (bind ?nuevas_aliadas (replace$ ?aliadas ?index ?index ?nueva_pieza))
+    )
+    (if (> (length$ (explode$ ?mov)) 2) then
+        (bind ?pos_capturada (sub-string 1 2 ?mov))
+        (bind ?encontrada FALSE)
+        (bind ?index 0)
+        (loop-for-count (?i 1 (length$ ?enemigas))
+            (bind ?pieza (nth$ ?i ?enemigas))
+            (bind ?pos (sub-string 2 3 ?pieza))
+            (if (eq ?pos_capturada ?pos) then
+                (bind ?pieza_capturada (sym-cat ?tipo ?pos_capturada))
+                (bind ?index ?i)
+                (bind ?encontrada TRUE)
+                (break)
+            )
+        )
+        (if ?encontrada then
+            (bind ?nuevas_enemigas (delete$ ?enemigas ?index ?pieza_capturada))
+        )
+    )
+    (if ?color then
+        (bind ?nuevas_blancas ?nuevas_aliadas)
+        (bind ?nuevas_negras ?nuevas_enemigas)
+    else
+        (bind ?nuevas_blancas ?nuevas_enemigas)
+        (bind ?nuevas_negras ?nuevas_aliadas)
+    )
+
+    (if ?*MOV_FORZADO* then
+        (return (assert (tablero_tmp (blancas ?nuevas_blancas) (negras ?nuevas_negras))))
+    else
+        (cambiar_turno)
+        (return (assert (tablero (blancas ?nuevas_blancas) (negras ?nuevas_negras))))
     )
 )
 
@@ -247,15 +322,27 @@
         ; else (if (eq ?tipo ?*DAMA*) then
         );)
     )
+    (return ?movimientos)
 )
 
-(deffunction JUEGO::pedir_mov(?blancas ?negras)
-    (bind ?pos_mov (movimientos ?blancas ?negras ?*TURNO*))
+; pregunta al jugador el movimiento que quiere realizar
+; devuelve una string que contiene las cordenadas de la pieza y las de
+; la casilla destino
+; >
+(deffunction JUEGO::pedir_mov(?blancas ?negras ?juegan_blancas)
+    (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas))
     (while TRUE
         (print_tablero ?blancas ?negras)
+        (printout t ?pos_mov crlf)
         (printout t "¿Qué pieza quieres mover? xy: ")
         (bind ?pieza (str-cat (read)))
-        (printout t (length ?pieza))
+
+        ; DEBUG
+        (if (eq ?pieza "q") then
+            (assert (salir))
+            (return)
+        )
+
         (if (eq (length ?pieza) 3) then
             (bind ?pieza (str-cat (sub-string 1 1 ?pieza) (sub-string 3 3 ?pieza)))
         )
@@ -275,10 +362,38 @@
             (foreach ?mov ?pos_mov
                 (bind ?long (length ?mov))
                 (if (eq (sub-string (- ?long 1) ?long ?mov) ?posicion) then
-                    (return ?mov)
+                    (return (str-cat ?mov))
                 )
             )
         )
+    )
+)
+
+(deffunction JUEGO::turno_jugador(?blancas ?negras ?color)
+    (bind ?mov (pedir_mov ?blancas ?negras ?color))
+    (aplicar_movimiento ?blancas ?negras ?mov ?color)
+    (printout t ?mov crlf)
+)
+
+(deffunction JUEGO::turno_ia(?blancas ?negras ?color)
+    (turno_jugador ?blancas ?negras ?color)
+)
+
+(deffunction JUEGO::turno(?blancas ?negras ?verbose)
+    (if (eq ?*TURNO* ?*COLOR_J*) then
+        (if ?verbose then
+            (printout t "=================" crlf)
+            (printout t "TURNO DEL JUGADOR" crlf)
+            (printout t "=================" crlf)
+        )
+        (turno_jugador ?blancas ?negras ?*COLOR_J*)
+    else
+        (if ?verbose then
+            (printout t "===================" crlf)
+            (printout t "TURNO DEL ORDENADOR" crlf)
+            (printout t "===================" crlf)
+        )
+        (turno_ia ?blancas ?negras (not ?*COLOR_J*))
     )
 )
 
@@ -290,20 +405,34 @@
     (crear_tablero)
 )
 
+(defrule JUEGO::turno_intermedio
+    (declare (salience 60))
+    ?t <- (tablero_tmp (blancas $?b) (negras $?n))
+    =>
+    (movimientos $?b $?n ?*TURNO*)
+    (if (not ?*MOV_FORZADO*) then
+        (assert (tablero (blancas $?b) (negras $?n)))
+        (cambiar_turno)
+    else
+        (turno $?b $?n FALSE)
+    )
+    (retract ?t)
+)
+
 (defrule JUEGO::turno
     (declare (salience 50))
     ?t <- (tablero (blancas $?b) (negras $?n))
     =>
-    (bind ?mov (pedir_mov $?b $?n))
-    (printout t ?mov crlf)
+    (turno $?b $?n TRUE)
+    (retract ?t)
 )
 
-; (defrule JUEGO::test
-;     (declare (salience 90))
-;     (tablero (blancas $?b) (negras $?n))
-;     =>
-;     (print_tablero $?b $?n)
-; )
+(defrule JUEGO::salir
+    (declare (salience 90))
+    (salir)
+    =>
+    (halt)
+)
 
 (deffacts JUEGO::inicializacion
     (inicializacion)
