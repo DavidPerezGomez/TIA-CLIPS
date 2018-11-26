@@ -1,33 +1,33 @@
 
 g = {
     # nivel 1
-    "a": ["b", "c", "d"],
+    1: [2, 3, 4],
     # nivel 2
-    "b": ["e", "f"],
-    "c": ["g", "h"],
-    "d": ["i", "j"],
+    2: [5, 6],
+    3: [7, 8],
+    4: [9, 10],
     # nivel 3
-    "e": ["k", "l"],
-    "f": ["m", "n", "o"],
-    "g": ["p", "q", "r"],
-    "h": ["s", "t"],
-    "i": ["u", "v"],
-    "j": ["w", "x"],
+    5: [11, 12],
+    6: [13, 14, 15],
+    7: [16, 17, 18],
+    8: [19, 20],
+    9: [21, 22],
+    10: [23, 24],
     #nivel 4
-    "k": 4,
-    "l": 5,
-    "m": 3,
-    "n": 6,
-    "o": 1,
-    "p": 4,
-    "q": 2,
-    "r": 1,
-    "s": 1,
-    "t": 2,
-    "u": 5,
-    "v": 4,
-    "w": 9,
-    "x": 8,
+    11: 4,
+    12: 5,
+    13: 3,
+    14: 6,
+    15: 1,
+    16: 4,
+    17: 2,
+    18: 1,
+    19: 1,
+    20: 2,
+    21: 5,
+    22: 4,
+    23: 9,
+    24: 8,
 }
 
 
@@ -89,11 +89,11 @@ def encontrar_camino_vuelta(id_padre):
                     break
             except:
                 pass
-        if id_padre == "a":
+        if id_padre == 1:
             inicio = True
     return camino
 
-value, id_padre = max_value(g["a"], "a")
+value, id_padre = max_value(g[1], 1)
 
 print("el valor es:", value)
 print("el camino es:", encontrar_camino_vuelta(id_padre))
