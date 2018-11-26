@@ -199,9 +199,11 @@
             )
         )
         (if ?encontrada then
+            ; si se ha encontrado, se elimina la pieza capturada de la lista
             (bind ?nuevas_enemigas (delete$ ?enemigas ?index ?index))
         )
     )
+    ; se recuperan los colores de las piezas
     (if ?color then
         (bind ?nuevas_blancas ?nuevas_aliadas)
         (bind ?nuevas_negras ?nuevas_enemigas)
@@ -210,9 +212,14 @@
         (bind ?nuevas_negras ?nuevas_aliadas)
     )
 
+    ; se crea el tablero con las nuevas piezas
     (if ?*MOV_FORZADO* then
+        ; si alguno de los movimientos ha sido forzado, hay posibilidad de que
+        ; haya más capturas posibles en el mism turno.
+        ; se hace un tablero_tmp para investigar
         (return (assert (tablero_tmp (blancas ?nuevas_blancas) (negras ?nuevas_negras))))
     else
+        ; el turno se ha terminado. se crea el nuevo tablero
         (cambiar_turno)
         (return (assert (tablero (blancas ?nuevas_blancas) (negras ?nuevas_negras))))
     )
@@ -443,14 +450,20 @@
 )
 
 (defrule JUEGO::turno_intermedio
+    ; solo se crean hechos tablero_tmp cuando se hace un movimiento forzado (capturando una pieza)
+    ; esta regla es para comprobar si hay más movimiento obligatorios en el
+    ; mismo turno
     (declare (salience 60))
     ?t <- (tablero_tmp (blancas $?b) (negras $?n))
     =>
+    ; se calculan todos los movimientos posibles
     (movimientos $?b $?n ?*TURNO*)
     (if (not ?*MOV_FORZADO*) then
+        ; si no hay forzados, se crea un tablero normal y se pasa el turno
         (assert (tablero (blancas $?b) (negras $?n)))
         (cambiar_turno)
     else
+        ; si hay forzados, se toma otro turno
         (turno $?b $?n FALSE)
     )
     (retract ?t)
