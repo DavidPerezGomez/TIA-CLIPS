@@ -143,9 +143,10 @@
 ; devuelve el identificador del nuevo estado
 (deffunction JUEGO::aplicar_movimiento(?blancas ?negras ?mov ?color)
     (bind ?long (length ?mov))
-    (bind ?pos_pieza (sub-string 1 2 ?mov))
+    (bind ?pos_origen (sub-string 1 2 ?mov))
     (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
     (bind ?encontrada FALSE)
+    ; generalización de las listas de piezas en ?aliadas y ?enemigas
     (if ?color then
         (bind ?aliadas ?blancas)
         (bind ?nuevas_aliadas ?blancas)
@@ -158,36 +159,47 @@
         (bind ?nuevas_enemigas ?blancas)
     )
     (bind ?index 0)
+    ; iterar las aliadas buscando la pieza que se quiere mover
+    ; TODO esto de buscar la pieza igual puedo extraerlo a una función suelta
     (loop-for-count (?i 1 (length$ ?aliadas))
         (bind ?pieza (nth$ ?i ?aliadas))
         (bind ?tipo (sub-string 1 1 ?pieza))
         (bind ?pos (sub-string 2 3 ?pieza))
-        (if (eq ?pos_pieza ?pos) then
-            (bind ?nueva_pieza (sym-cat ?tipo ?pos_destino))
-            (bind ?index ?i)
+        ; si las posiciones son iguales
+        (if (eq ?pos ?pos_origen) then
+            ; creamos la nueva pieza después de haber sido movida
+            (bind ?pieza_movida (sym-cat ?tipo ?pos_destino))
             (bind ?encontrada TRUE)
+            ; guardamos el índice de la pieza
+            (bind ?index ?i)
             (break)
         )
     )
     (if ?encontrada then
-        (bind ?nuevas_aliadas (replace$ ?aliadas ?index ?index ?nueva_pieza))
+        ; si se ha encontrado, se reemplaza la pieza original por la movida
+        (bind ?nuevas_aliadas (replace$ ?aliadas ?index ?index ?pieza_movida))
+    else
+        ; si no se ha encontrado, se asume error y se sale del método
+        (return FALSE)
     )
     (if (> (length$ (explode$ ?mov)) 2) then
-        (bind ?pos_capturada (sub-string 1 2 ?mov))
+        (bind ?pos_capturada (sub-string 4 5 ?mov))
         (bind ?encontrada FALSE)
         (bind ?index 0)
+        ; iterar las enemigas buscando la pieza que se ha capturado
         (loop-for-count (?i 1 (length$ ?enemigas))
             (bind ?pieza (nth$ ?i ?enemigas))
             (bind ?pos (sub-string 2 3 ?pieza))
+            ; si las posiciones son iguales
             (if (eq ?pos_capturada ?pos) then
-                (bind ?pieza_capturada (sym-cat ?tipo ?pos_capturada))
-                (bind ?index ?i)
                 (bind ?encontrada TRUE)
+                ; guardamos el índice de la pieza
+                (bind ?index ?i)
                 (break)
             )
         )
         (if ?encontrada then
-            (bind ?nuevas_enemigas (delete$ ?enemigas ?index ?pieza_capturada))
+            (bind ?nuevas_enemigas (delete$ ?enemigas ?index ?index))
         )
     )
     (if ?color then
