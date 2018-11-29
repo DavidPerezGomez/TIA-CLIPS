@@ -137,6 +137,21 @@
 )
 )
 
+(deffunction JUEGO::heuristco(?blancas ?negras ?color)
+    (bind ?heuristco -1)
+    ; criterios y su ponderación:
+    ; valor de las piezas
+    (bind ?pond_piezas 1)
+    (bind ?val_peon 3)
+    (bind ?val_dama 5)
+    ; posicionamiento de peones
+    (bind ?pond_pos_peones 1)
+    ; posicionamiento de las damas
+    (bind ?pond_pos_damas 1)
+    ; componente aleatorios
+    ; (bind ?rand (random -10 10))
+    (bind ?pond_rand 0.1)
+)
 
 (deffunction coronar(?pieza ?piezas)
     (if (eq (sub-string 1 1 ?pieza) ?*PIEZA_NORMAL*) then
