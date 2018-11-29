@@ -137,6 +137,20 @@
 )
 )
 
+
+(deffunction coronar(?pieza ?piezas)
+    (if (eq (sub-string 1 1 ?pieza ?*PIEZA_NORMAL*)) then
+        (return ?piezas)
+    )
+    (bind ?index (member$ ?pieza ?piezas))
+    (if ?index then
+        (bind ?nueva_pieza (sym-cat ?*DAMA (sub-string 2 3 ?pieza)))
+        (bind ?nuevas_piezas (replace$ ?piezas ?index ?index ?nueva_pieza))
+        (return ?nuevas_piezas)
+    )
+    (return FALSE)
+)
+
 ; aplica el movimiento ?mov al tablero formado por ?blancas y ?negras
 ; genera un nuevo par de vectores de blancas y negras y los utiliza
 ; para crear un nuevo estado tablero
