@@ -281,7 +281,7 @@
                 (sym-cat ?*PIEZA_NORMAL* ?pos_x ?pos_y)
                 (sym-cat ?*DAMA* ?pos_x ?pos_y)))
             (bind ?ocupada FALSE)
-            ; si está en las enemigas
+            ; si hay alguna posible pieza enemiga
             (foreach ?posible_pieza ?posibles_piezas
                 (if (in ?posible_pieza ?defendientes) then
                     (bind ?ocupada TRUE)
@@ -301,7 +301,7 @@
                         (sym-cat ?*PIEZA_NORMAL* ?sig_pos_x ?sig_pos_y)
                         (sym-cat ?*DAMA* ?sig_pos_x ?sig_pos_y)))
                     (bind ?sig_ocupada FALSE)
-                    ; si no está en las aliadas o en las enemigas
+                    ; miramos si está ocupada por alguna pieza
                     (foreach ?sig_posible_pieza ?sig_posibles_piezas
                         (if (or (in ?sig_posible_pieza ?defendientes)
                                 (in ?sig_posible_pieza ?atacantes)) then
@@ -348,10 +348,95 @@
     (return ?mov)
 )
 
-; hace que me quiera tirar por la ventana
-; devuelve depresión
-(deffunction JUEGO::mov_dama(?x ?y ?direccion ?atacantes ?defendientes)
-    (return (create$))
+; devuelve los posibles movimientos de una dama
+; solamente se tiene en cuenta un salto, aunque sea posible hacer varios
+; devuelve un multicampo en el que cada valor es un movimiento posible
+; cada movimiento viene en forma de string
+; si no se puede mover, el multicampo estará vacío
+; si el movimiento es simple (no se come) la string son solo las coordenadas del destino
+; > "24" (se mueve a (2,4))
+; si en el movimiento se captura a otra pieza, la string contiene las coordenadas
+; de la pieza capturada y del destino separadas por un espacio
+; > "35 46" (captura la pieza en (3,5) y se mueve a (4,6))
+(deffunction JUEGO::mov_dama(?x ?y ?atacantes ?defendientes)
+    (bind ?mov (create$))
+    (foreach ?horizontal (create$ 1 -1)
+        (foreach ?vertical (create$ 1 -1)
+            (bind ?diagonal (create$))
+            (bind ?capturada FALSE)
+            (bind ?pos_x ?x)
+            (bind ?pos_y ?y)
+            (while TRUE
+                (bind ?pos_x (+ ?pos_x ?horizontal))
+                (bind ?pos_y (+ ?pos_y ?vertical))
+                (if (not (is_in_board ?pos_x ?pos_y)) then
+                    ; si está fuera del tablero, pasamos a la siguiente diagonal
+                    (break)
+                else
+                    ; creamos las posibles piezas que podrían estar en esa posición
+                    (bind ?posibles_piezas (create$
+                        (sym-cat ?*PIEZA_NORMAL* ?pos_x ?pos_y)
+                        (sym-cat ?*DAMA* ?pos_x ?pos_y)))
+                    (bind ?ocupada FALSE)
+                    ; si hay alguna posible pieza enemiga
+                    (foreach ?posible_pieza ?posibles_piezas
+                        (if (in ?posible_pieza ?defendientes) then
+                            (bind ?ocupada TRUE)
+                            (bind ?capturada ?posible_pieza)
+                            (break)
+                        )
+                    )
+                    (if ?ocupada then
+                        ; si hay una pieza enemiga
+                        (if ?capturada then
+                            ; ya se ha pasado por encima de una enemiga
+                            ; se pasa a la siguiente diagonal
+                            (bind ?mov (append ?diagonal ?mov))
+                            (break)
+                        ; else
+                            ; si es la primera enemiga que nos encontramos
+                            ; guardamos la posición de la pieza enemiga que
+                            ; estaríamos capturando (?capturada)
+                        )
+                    else
+                        ; si no hay una enemiga, se mira en las aliadas
+                        (bind ?ocupada FALSE)
+                        (foreach ?posible_pieza ?posibles_piezas
+                            (if (in ?posible_pieza ?atacantes) then
+                                (bind ?ocupada TRUE)
+                                (break)
+                            )
+                        )
+                        (if ?ocupada then
+                            ; si hay una aliada, se pasa a la siguiente diagonal
+                            (bind ?mov (append ?diagonal ?mov))
+                            (break)
+                        else
+                            ; si está vacía
+                            (if (not ?capturada) then
+                                ; si no se ha capturado ninguna enemiga
+                                ; se añade si no hay algún movimiento forzado
+                                (if (not ?*MOV_FORZADO*) then
+                                    (bind ?diagonal (append (str-cat ?pos_x ?pos_y) ?diagonal))
+                                )
+                            else
+                                ; si se ha capturado alguna enemiga
+                                (if (not ?*MOV_FORZADO*) then
+                                    (bind ?*MOV_FORZADO* TRUE)
+                                    (bind ?mov (create$))
+                                    (bind ?diagonal (create$))
+                                )
+                                ; se añade a la diagonal
+                                (bind ?diagonal (append
+                                    (str-cat (sub-string 2 3 ?capturada) " " ?pos_x ?pos_y) ?diagonal))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+    (return ?mov)
 )
 
 ; devuelve un multicampo en el que cada valor es una string representando
