@@ -139,12 +139,12 @@
 
 
 (deffunction coronar(?pieza ?piezas)
-    (if (eq (sub-string 1 1 ?pieza ?*PIEZA_NORMAL*)) then
+    (if (eq (sub-string 1 1 ?pieza) ?*PIEZA_NORMAL*) then
         (return ?piezas)
     )
     (bind ?index (member$ ?pieza ?piezas))
     (if ?index then
-        (bind ?nueva_pieza (sym-cat ?*DAMA (sub-string 2 3 ?pieza)))
+        (bind ?nueva_pieza (sym-cat ?*DAMA* (sub-string 2 3 ?pieza)))
         (bind ?nuevas_piezas (replace$ ?piezas ?index ?index ?nueva_pieza))
         (return ?nuevas_piezas)
     )
@@ -391,7 +391,10 @@
     (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas))
     (while TRUE
         (print_tablero ?blancas ?negras)
-        (printout t ?pos_mov crlf)
+        (foreach ?mov ?pos_mov
+            (printout t "| " (sub-string 1 2 ?mov) " ")
+        )
+        (printout t crlf)
         (printout t "¿Qué pieza quieres mover? xy: ")
         (bind ?pieza (str-cat (read)))
 
@@ -412,6 +415,12 @@
             )
         )
         (if ?pieza_correcta then
+            (foreach ?mov ?pos_mov
+                (if (eq (sub-string 1 2 ?mov) ?pieza) then
+                    (printout t "| " (sub-string (- (length ?mov) 1) (length ?mov) ?mov) " ")
+                )
+            )
+            (printout t crlf)
             (printout t "¿A que posición quieres moverla? xy: ")
             (bind ?posicion (str-cat (read)))
             (if (eq (length ?posicion) 3) then
