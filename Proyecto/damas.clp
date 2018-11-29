@@ -10,8 +10,10 @@
     ?*PIEZA_NORMAL* = "N"
     ?*DAMA* = "D"
     ?*MOV_FORZADO* = FALSE
-    ?*SYM_B* = "o" ; simbolo para las blancas
-    ?*SYM_N* = "x" ; simbolo para negras
+    ?*SYMB_PEON_B* = "o" ; simbolo para las blancas
+    ?*SYMB_PEON_N* = "x" ; simbolo para las negras
+    ?*SYMB_DAMA_B* = "O" ; simbolo para las damas blancas
+    ?*SYMB_DAMA_N* = "X" ; simbolo para las damas blancas
     ?*SYM_V* = " " ; simbolo para el vacio
     ?*DEBUG* = TRUE
 )
@@ -61,10 +63,12 @@
 ; coordenadas de la primera ficha por la izquierda
 (deffunction JUEGO::crear_linea (?x ?y)
     (bind ?result "")
-    (bind ?result (str-cat ?*PIEZA_NORMAL* ?x ?y))
+    ; (bind ?result (str-cat ?*PIEZA_NORMAL* ?x ?y))
+    (bind ?result (str-cat ?*DAMA* ?x ?y))
     (loop-for-count (?i ?x (- ?*DIM* 1))
         (if (eq 0 (mod ?i 2)) then
-            (bind ?result (str-cat ?result " N" (+ ?x ?i) ?y))
+            ; (bind ?result (str-cat ?result " N" (+ ?x ?i) ?y))
+            (bind ?result (str-cat ?result " " ?*DAMA* (+ ?x ?i) ?y))
         )
     )
     (return ?result)
@@ -92,6 +96,64 @@
     (printout t "Blancas: " ?blancas crlf)
 
     (assert(tablero (blancas ?blancas) (negras ?negras)))
+)
+
+(deffunction JUEGO::print_tablero2 (?blancas ?negras)
+    (loop-for-count (?i 0 ?*DIM*)
+        (bind ?linea "")
+        (bind ?fila (- ?*DIM* ?i))
+        (loop-for-count (?col 0 ?*DIM*)
+            (if (= ?col 0) then
+                ; columna de números
+                (bind ?linea (str-cat ?fila))
+                (if (= ?fila 0) then
+                    (bind ?linea (str-cat ?linea " "))
+                )
+            else (if (= ?fila 0) then
+                ; fila de numeros
+                (bind ?linea (str-cat ?linea (str-cat ?col " ")))
+            else
+                ; casilla del tablero
+                ; buscar la pieza
+                ; creamos las posibles piezas que podrían estar en esa posición
+                (bind ?posibles_piezas (create$
+                    (sym-cat ?*PIEZA_NORMAL* ?col ?fila)
+                    (sym-cat ?*DAMA* ?col ?fila)))
+                (bind ?sym FALSE)
+                ; se busca en las blancas
+                (foreach ?posible_pieza ?posibles_piezas
+                    (if (in ?posible_pieza ?blancas) then
+                        (bind ?tipo (sub-string 1 1 ?posible_pieza))
+                        (if (eq ?tipo ?*PIEZA_NORMAL*) then
+                            (bind ?sym ?*SYMB_PEON_B*)
+                        else
+                            (bind ?sym ?*SYMB_DAMA_B*)
+                        )
+                        (break)
+                    )
+                )
+                (if (not ?sym) then
+                    ; si no está en las blancas se busca en las negras
+                    (foreach ?posible_pieza ?posibles_piezas
+                        (if (in ?posible_pieza ?negras) then
+                            (bind ?tipo (sub-string 1 1 ?posible_pieza))
+                            (if (eq ?tipo ?*PIEZA_NORMAL*) then
+                                (bind ?sym ?*SYMB_PEON_N*)
+                            else
+                                (bind ?sym ?*SYMB_DAMA_N*)
+                            )
+                            (break)
+                        )
+                    )
+                )
+                (if (not ?sym) then
+                    (bind ?sym " ")
+                )
+                (bind ?linea (str-cat ?linea (str-cat "|" ?sym)))
+            ))
+        )
+        (printout t ?linea crlf)
+    )
 )
 
 (deffunction JUEGO::print_tablero (?blancas ?negras)
@@ -467,18 +529,19 @@
         (bind ?y (string-to-field (sub-string 3 3 ?pieza)))
         (if (eq ?tipo ?*PIEZA_NORMAL*) then
             (bind ?mov (mov_pieza_normal ?x ?y ?direccion ?atacantes ?defendientes))
-            (if (and ?*MOV_FORZADO* (not ?prev_forzado)) then
-                (bind ?movimientos (create$))
-                (bind ?prev_forzado ?*MOV_FORZADO*)
+        else (if (eq ?tipo ?*DAMA*) then
+            (bind ?mov (mov_dama ?x ?y ?atacantes ?defendientes))
+        ))
+        (if (and ?*MOV_FORZADO* (not ?prev_forzado)) then
+            (bind ?movimientos (create$))
+            (bind ?prev_forzado ?*MOV_FORZADO*)
+        )
+        (if (eq ?prev_forzado ?*MOV_FORZADO*) then
+            (foreach ?m ?mov
+                (bind ?mov_completo (str-cat ?x ?y " " ?m))
+                (bind ?movimientos (append ?mov_completo ?movimientos))
             )
-            (if (eq ?prev_forzado ?*MOV_FORZADO*) then
-                (foreach ?m ?mov
-                    (bind ?mov_completo (str-cat ?x ?y " " ?m))
-                    (bind ?movimientos (append ?mov_completo ?movimientos))
-                )
-            )
-        ; else (if (eq ?tipo ?*DAMA*) then
-        );)
+        )
     )
     (return ?movimientos)
 )
@@ -490,7 +553,7 @@
 (deffunction JUEGO::pedir_mov(?blancas ?negras ?juegan_blancas)
     (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas))
     (while TRUE
-        (print_tablero ?blancas ?negras)
+        (print_tablero2 ?blancas ?negras)
         (foreach ?mov ?pos_mov
             (printout t "| " (sub-string 1 2 ?mov) " ")
         )
