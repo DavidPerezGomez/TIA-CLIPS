@@ -191,6 +191,7 @@
     (bind ?pond_rand 0.1)
 )
 
+; este no hace falta. lo dejo por si acaso
 (deffunction coronar(?pieza ?piezas)
     (if (eq (sub-string 1 1 ?pieza) ?*PIEZA_NORMAL*) then
         (return ?piezas)
@@ -213,6 +214,7 @@
     (bind ?pos_origen (sub-string 1 2 ?mov))
     (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
     (bind ?encontrada FALSE)
+    (bind ?coronado FALSE)
     ; generalización de las listas de piezas en ?aliadas y ?enemigas
     (if ?color then
         (bind ?aliadas ?blancas)
@@ -227,7 +229,6 @@
     )
     (bind ?index 0)
     ; iterar las aliadas buscando la pieza que se quiere mover
-    ; TODO esto de buscar la pieza igual puedo extraerlo a una función suelta
     (loop-for-count (?i 1 (length$ ?aliadas))
         (bind ?pieza (nth$ ?i ?aliadas))
         (bind ?tipo (sub-string 1 1 ?pieza))
@@ -235,6 +236,16 @@
         ; si las posiciones son iguales
         (if (eq ?pos ?pos_origen) then
             ; creamos la nueva pieza después de haber sido movida
+            (if (or
+                    (and ?color (= 8 (string-to-field (sub-string 2 2 ?pos_destino))))
+                    (and (not ?color) (= 1 (string-to-field (sub-string 2 2 ?pos_destino))))
+                ) then
+                (if (eq ?tipo ?*PIEZA_NORMAL*) then
+                ; si la pieza llega al final del tablero y es un peón, se corona
+                    (bind ?tipo ?*DAMA*)
+                    (bind ?coronado TRUE)
+                )
+            )
             (bind ?pieza_movida (sym-cat ?tipo ?pos_destino))
             (bind ?encontrada TRUE)
             ; guardamos el índice de la pieza
@@ -280,7 +291,7 @@
     )
 
     ; se crea el tablero con las nuevas piezas
-    (if ?*MOV_FORZADO* then
+    (if (and ?*MOV_FORZADO* (not ?coronado)) then
         ; si alguno de los movimientos ha sido forzado, hay posibilidad de que
         ; haya más capturas posibles en el mism turno.
         ; se hace un tablero_tmp para investigar
