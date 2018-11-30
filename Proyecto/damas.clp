@@ -422,78 +422,91 @@
 ; > "35 46" (captura la pieza en (3,5) y se mueve a (4,6))
 (deffunction JUEGO::mov_dama(?x ?y ?atacantes ?defendientes)
     (bind ?mov (create$))
+    ; se iteran las cuatro diagonales
+    ; los movimientos de cada diagonal se añadirán a ?mov
     (foreach ?horizontal (create$ 1 -1)
         (foreach ?vertical (create$ 1 -1)
+            ; los moviminetos de la diagnoanal
             (bind ?diagonal (create$))
-            (bind ?capturada FALSE)
+            ; estado de búsqueda. si FALSE, no se ha encontrado ninguna pieza
+            ; en esta diagonal. si se ha encontrado algu pieza enemiga, se
+            ; guarda su posición
+            (bind ?enemiga_encontrada FALSE)
+            ; casilla original
             (bind ?pos_x ?x)
             (bind ?pos_y ?y)
+            ; avanzamos en la diagonal hasta encontrar una razón para salir
+            (bind ?salir FALSE)
             (while TRUE
+                (bind ?ocupada_enemiga FALSE)
+                (bind ?ocupada_aliada FALSE)
+                ; calculamos la siguiente casilla
                 (bind ?pos_x (+ ?pos_x ?horizontal))
                 (bind ?pos_y (+ ?pos_y ?vertical))
+
                 (if (not (is_in_board ?pos_x ?pos_y)) then
                     ; si está fuera del tablero, pasamos a la siguiente diagonal
+                    (bind ?mov (append ?diagonal ?mov))
                     (break)
-                else
-                    ; creamos las posibles piezas que podrían estar en esa posición
-                    (bind ?posibles_piezas (create$
-                        (sym-cat ?*PIEZA_NORMAL* ?pos_x ?pos_y)
-                        (sym-cat ?*DAMA* ?pos_x ?pos_y)))
-                    (bind ?ocupada FALSE)
-                    ; si hay alguna posible pieza enemiga
-                    (foreach ?posible_pieza ?posibles_piezas
-                        (if (in ?posible_pieza ?defendientes) then
-                            (bind ?ocupada TRUE)
-                            (bind ?capturada ?posible_pieza)
+                )
+                ; comprobamos si hay una pieza enemiga
+                (foreach ?enemiga ?defendientes
+                    (bind ?pos (sub-string 2 3 ?enemiga))
+                    (if (eq ?pos (str-cat ?pos_x ?pos_y)) then
+                        (bind ?ocupada_enemiga ?pos)
+                        (break)
+                    )
+                )
+                (if (not ?ocupada_enemiga) then
+                    ; si no hay una pieza enemiga
+                    ; comprobamos si hay una pieza aliada
+                    (foreach ?aliada ?atacantes
+                        (bind ?pos (sub-string 2 3 ?aliada))
+                        (if (eq ?pos (str-cat ?pos_x ?pos_y)) then
+                            (bind ?ocupada_aliada ?pos)
                             (break)
                         )
                     )
-                    (if ?ocupada then
-                        ; si hay una pieza enemiga
-                        (if ?capturada then
-                            ; ya se ha pasado por encima de una enemiga
-                            ; se pasa a la siguiente diagonal
-                            (bind ?mov (append ?diagonal ?mov))
-                            (break)
-                        ; else
-                            ; si es la primera enemiga que nos encontramos
-                            ; guardamos la posición de la pieza enemiga que
-                            ; estaríamos capturando (?capturada)
+                )
+
+                (if ?ocupada_enemiga then
+                    ; si hay una pieza enemiga
+                    (if (not ?enemiga_encontrada) then
+                        ; si es la primera enemiga que se encuentra
+                        ; se guarda su posición
+                        (bind ?enemiga_encontrada ?ocupada_enemiga)
+                    else
+                        ; si no es la primera enemiga que se encuentra
+                        ; salimos
+                        (bind ?salir TRUE)
+                    )
+                else (if ?ocupada_aliada then
+                    ; si hay una pieza aliada
+                    ; salimos
+                    (bind ?salir TRUE)
+                else
+                    ; si la casilla está vacía
+                    (if (not ?enemiga_encontrada) then
+                        ; si no se ha encontrado ninguna enemiga
+                        ; se añade si no hay algún movimiento forzado
+                        (if (not ?*MOV_FORZADO*) then
+                            (bind ?diagonal (append (str-cat ?pos_x ?pos_y) ?diagonal))
                         )
                     else
-                        ; si no hay una enemiga, se mira en las aliadas
-                        (bind ?ocupada FALSE)
-                        (foreach ?posible_pieza ?posibles_piezas
-                            (if (in ?posible_pieza ?atacantes) then
-                                (bind ?ocupada TRUE)
-                                (break)
-                            )
+                        ; si se ha encontrado alguna enemiga
+                        (if (not ?*MOV_FORZADO*) then
+                            (bind ?*MOV_FORZADO* TRUE)
+                            (bind ?mov (create$))
+                            (bind ?diagonal (create$))
                         )
-                        (if ?ocupada then
-                            ; si hay una aliada, se pasa a la siguiente diagonal
-                            (bind ?mov (append ?diagonal ?mov))
-                            (break)
-                        else
-                            ; si está vacía
-                            (if (not ?capturada) then
-                                ; si no se ha capturado ninguna enemiga
-                                ; se añade si no hay algún movimiento forzado
-                                (if (not ?*MOV_FORZADO*) then
-                                    (bind ?diagonal (append (str-cat ?pos_x ?pos_y) ?diagonal))
-                                )
-                            else
-                                ; si se ha capturado alguna enemiga
-                                (if (not ?*MOV_FORZADO*) then
-                                    (bind ?*MOV_FORZADO* TRUE)
-                                    (bind ?mov (create$))
-                                    (bind ?diagonal (create$))
-                                )
-                                ; se añade a la diagonal
-                                (bind ?diagonal (append
-                                    (str-cat (sub-string 2 3 ?capturada) " " ?pos_x ?pos_y) ?diagonal))
-                            )
-                        )
+                        ; se añade a la diagonal
+                        (bind ?diagonal (append
+                            (str-cat ?enemiga_encontrada " " ?pos_x ?pos_y) ?diagonal))
                     )
+                ))
+                (if ?salir then
+                    (bind ?mov (append ?diagonal ?mov))
+                    (break)
                 )
             )
         )
