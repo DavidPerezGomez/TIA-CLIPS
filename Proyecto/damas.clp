@@ -63,12 +63,12 @@
 ; coordenadas de la primera ficha por la izquierda
 (deffunction JUEGO::crear_linea (?x ?y)
     (bind ?result "")
-    ; (bind ?result (str-cat ?*PIEZA_NORMAL* ?x ?y))
-    (bind ?result (str-cat ?*DAMA* ?x ?y))
+    (bind ?result (str-cat ?*PIEZA_NORMAL* ?x ?y))
+    ; (bind ?result (str-cat ?*DAMA* ?x ?y))
     (loop-for-count (?i ?x (- ?*DIM* 1))
         (if (eq 0 (mod ?i 2)) then
-            ; (bind ?result (str-cat ?result " N" (+ ?x ?i) ?y))
-            (bind ?result (str-cat ?result " " ?*DAMA* (+ ?x ?i) ?y))
+            (bind ?result (str-cat ?result " " ?*PIEZA_NORMAL* (+ ?x ?i) ?y))
+            ; (bind ?result (str-cat ?result " " ?*DAMA* (+ ?x ?i) ?y))
         )
     )
     (return ?result)
@@ -568,7 +568,8 @@
             )
             (foreach ?mov ?pos_mov
                 (bind ?long (length ?mov))
-                (if (eq (sub-string (- ?long 1) ?long ?mov) ?posicion) then
+                (if (and (eq (sub-string 1 2 ?mov) ?pieza)
+                    (eq (sub-string (- ?long 1) ?long ?mov) ?posicion)) then
                     (return (str-cat ?mov))
                 )
             )
