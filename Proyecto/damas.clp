@@ -554,9 +554,16 @@
     (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas))
     (while TRUE
         (print_tablero2 ?blancas ?negras)
+
+        (bind ?escritos (create$))
         (foreach ?mov ?pos_mov
-            (printout t "| " (sub-string 1 2 ?mov) " ")
+            (bind ?pos_origen (sub-string 1 2 ?mov))
+            (if (not (in ?pos_origen ?escritos)) then
+                (printout t "| " ?pos_origen " ")
+                (bind ?escritos (append ?pos_origen ?escritos))
+            )
         )
+
         (printout t crlf)
         (printout t "¿Qué pieza quieres mover? xy: ")
         (bind ?pieza (str-cat (read)))
