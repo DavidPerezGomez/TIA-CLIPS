@@ -14,6 +14,10 @@
     ?*SYMB_PEON_N* = "x" ; simbolo para las negras
     ?*SYMB_DAMA_B* = "O" ; simbolo para las damas blancas
     ?*SYMB_DAMA_N* = "X" ; simbolo para las damas blancas
+    ?*SYMB_G_PEON_B* = " o " ; simbolo para las blancas
+    ?*SYMB_G_PEON_N* = " x " ; simbolo para las negras
+    ?*SYMB_G_DAMA_B* = "oOo" ; simbolo para las damas blancas
+    ?*SYMB_G_DAMA_N* = "xXx" ; simbolo para las damas blancas
     ?*SYM_V* = " " ; simbolo para el vacio
     ?*DEBUG* = TRUE
 )
@@ -117,7 +121,7 @@
     (assert(tablero (blancas ?blancas) (negras ?negras)))
 )
 
-(deffunction JUEGO::print_tablero (?blancas ?negras)
+(deffunction JUEGO::print_tablero_pequeño(?blancas ?negras)
     (loop-for-count (?i 0 ?*DIM*)
         (bind ?linea "")
         (bind ?fila (- ?*DIM* ?i))
@@ -172,6 +176,73 @@
             ))
         )
         (printout t ?linea crlf)
+    )
+)
+
+(deffunction JUEGO::print_tablero_grande(?blancas ?negras)
+    (loop-for-count (?i 0 ?*DIM*)
+        (bind ?fila (- ?*DIM* ?i))
+        (printout t "   ---------------------------------" crlf)
+        (bind ?linea "")
+        (loop-for-count (?col 0 ?*DIM*)
+            (if (= ?col 0) then
+                ; columna de números
+                (bind ?linea (str-cat " " ?fila " "))
+            else (if (= ?fila 0) then
+                ; fila de numeros
+                (bind ?linea (str-cat ?linea (str-cat "  " ?col " ")))
+            else
+                ; casilla del tablero
+                ; buscar la pieza
+                ; creamos las posibles piezas que podrían estar en esa posición
+                (bind ?posibles_piezas (create$
+                    (sym-cat ?*PIEZA_NORMAL* ?col ?fila)
+                    (sym-cat ?*DAMA* ?col ?fila)))
+                (bind ?sym FALSE)
+                ; se busca en las blancas
+                (foreach ?posible_pieza ?posibles_piezas
+                    (if (in ?posible_pieza ?blancas) then
+                        (bind ?tipo (sub-string 1 1 ?posible_pieza))
+                        (if (eq ?tipo ?*PIEZA_NORMAL*) then
+                            (bind ?sym ?*SYMB_G_PEON_B*)
+                        else
+                            (bind ?sym ?*SYMB_G_DAMA_B*)
+                        )
+                        (break)
+                    )
+                )
+                (if (not ?sym) then
+                    ; si no está en las blancas se busca en las negras
+                    (foreach ?posible_pieza ?posibles_piezas
+                        (if (in ?posible_pieza ?negras) then
+                            (bind ?tipo (sub-string 1 1 ?posible_pieza))
+                            (if (eq ?tipo ?*PIEZA_NORMAL*) then
+                                (bind ?sym ?*SYMB_G_PEON_N*)
+                            else
+                                (bind ?sym ?*SYMB_G_DAMA_N*)
+                            )
+                            (break)
+                        )
+                    )
+                )
+                (if (not ?sym) then
+                    (bind ?sym "   ")
+                )
+                (bind ?linea (str-cat ?linea (str-cat "|" ?sym)))
+            ))
+        )
+        (if (not (= ?fila 0)) then
+            (bind ?linea (str-cat ?linea "|"))
+        )
+        (printout t ?linea crlf)
+    )
+)
+
+(deffunction JUEGO::print_tablero(?blancas ?negras ?pequeño)
+    (if ?pequeño then
+        (print_tablero_pequeño ?blancas ?negras)
+    else
+        (print_tablero_grande ?blancas ?negras)
     )
 )
 
@@ -555,7 +626,7 @@
 (deffunction JUEGO::pedir_mov(?blancas ?negras ?juegan_blancas ?pieza_a_mover)
     (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas ?pieza_a_mover))
     (while TRUE
-        (print_tablero ?blancas ?negras)
+        (print_tablero ?blancas ?negras FALSE)
 
         (bind ?escritos (create$))
         (foreach ?mov ?pos_mov
