@@ -98,7 +98,7 @@
     (assert(tablero (blancas ?blancas) (negras ?negras)))
 )
 
-(deffunction JUEGO::print_tablero2 (?blancas ?negras)
+(deffunction JUEGO::print_tablero (?blancas ?negras)
     (loop-for-count (?i 0 ?*DIM*)
         (bind ?linea "")
         (bind ?fila (- ?*DIM* ?i))
@@ -154,49 +154,6 @@
         )
         (printout t ?linea crlf)
     )
-)
-
-(deffunction JUEGO::print_tablero (?blancas ?negras)
-    (printout t "Imprimiendo tablero: " crlf)
-    (bind ?longnegras (length$ ?negras))
-    (bind ?longblancas (length$ ?blancas))
-    (printout t "longnegras: " ?longnegras crlf)
-    (printout t "longblancas: " ?longblancas crlf)
-    (bind ?v ?*DIM*)
-    (bind $?tablero " ")
-    (while (> ?v 0)
-        (loop-for-count (?i 1 ?*DIM*)
-            (bind ?tablero (str-cat ?tablero (str-cat "N" ?v ?i) " ")))
-            (bind ?v (- ?v 1))
-    )
-    (bind ?tablero (explode$ ?tablero))
-(loop-for-count(?a 1 ?longnegras)
-(bind ?pos (member$ (nth$ ?a ?negras) ?tablero))
-(bind ?tablero (replace$ ?tablero ?pos ?pos "X"))
-)
-(loop-for-count(?a 1 ?longblancas)
-(bind ?pos (member$ (nth$ ?a ?blancas) ?tablero))
-(bind ?tablero (replace$ ?tablero ?pos ?pos "O"))
-)
-(bind ?longtab (length$ ?tablero))
-(bind ?m ?*DIM*)
-(bind ?h 1)
-(while (> ?m 0)
-    (loop-for-count (?j 1 ?*DIM*)
-        (bind ?var (nth$ ?h ?tablero))
-        (if (eq ?var "X") then
-        (printout t "X ")
-        else
-        (if(eq ?var "O") then
-        (printout t "O ")
-        else
-        (printout t "_ "))
-        )
-        (bind ?h (+ ?h 1))
-        )
-        (bind ?m (- ?m 1))
-    (printout t crlf)
-)
 )
 
 (deffunction JUEGO::heuristco(?blancas ?negras ?color)
@@ -566,7 +523,7 @@
 (deffunction JUEGO::pedir_mov(?blancas ?negras ?juegan_blancas)
     (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas))
     (while TRUE
-        (print_tablero2 ?blancas ?negras)
+        (print_tablero ?blancas ?negras)
 
         (bind ?escritos (create$))
         (foreach ?mov ?pos_mov
