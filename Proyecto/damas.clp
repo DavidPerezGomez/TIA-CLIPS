@@ -28,6 +28,7 @@
 (deftemplate JUEGO::tablero_tmp
   (multislot blancas)
   (multislot negras)
+  (slot pieza_a_mover)
 )
 
 (deffunction JUEGO::in(?item $?vector)
@@ -72,6 +73,24 @@
         )
     )
     (return ?result)
+)
+
+; 8| | | | | | | | |
+; 7| | | | | | | | |
+; 6| | | | | | | | |
+; 5| | | | | |x| | |
+; 4| | |x| | | | | |
+; 3| |o| | | |x| | |
+; 2|o| | | | | |o| |
+; 1| | | | | | | |o|
+; 0 1 2 3 4 5 6 7 8
+(deffunction JUEGO::crear_tablero_test()
+    (bind ?negras "N34 N63 N65")
+    (bind ?blancas "N12 N23 N72 N81")
+    ; Cambiar las fichas a multicampos
+    (bind ?negras (explode$ ?negras))
+    (bind ?blancas (explode$ ?blancas))
+    (assert(tablero (blancas ?blancas) (negras ?negras)))
 )
 
 (deffunction JUEGO::crear_tablero()
@@ -265,7 +284,7 @@
         ; si alguno de los movimientos ha sido forzado, hay posibilidad de que
         ; haya más capturas posibles en el mism turno.
         ; se hace un tablero_tmp para investigar
-        (return (assert (tablero_tmp (blancas ?nuevas_blancas) (negras ?nuevas_negras))))
+        (return (assert (tablero_tmp (blancas ?nuevas_blancas) (negras ?nuevas_negras) (pieza_a_mover ?pos_destino))))
     else
         ; el turno se ha terminado. se crea el nuevo tablero
         (cambiar_turno)
@@ -480,7 +499,7 @@
 ; solo se tiene en cuenta un salto en cada movimiento aunque pudiese
 ; haber más
 ; > ("13 24" "33 24" "33 44" "53 44" "53 64" "73 64" "73 84")
-(deffunction JUEGO::movimientos(?blancas ?negras ?juegan_blancas)
+(deffunction JUEGO::movimientos(?blancas ?negras ?juegan_blancas ?pieza_a_mover)
     (bind ?*MOV_FORZADO* FALSE)
     (if ?juegan_blancas then
         (bind ?atacantes ?blancas)
@@ -493,23 +512,25 @@
     )
     (bind ?movimientos (create$))
     (foreach ?pieza ?atacantes
-        (bind ?prev_forzado ?*MOV_FORZADO*)
-        (bind ?tipo (sub-string 1 1 ?pieza))
-        (bind ?x (string-to-field (sub-string 2 2 ?pieza)))
-        (bind ?y (string-to-field (sub-string 3 3 ?pieza)))
-        (if (eq ?tipo ?*PIEZA_NORMAL*) then
-            (bind ?mov (mov_pieza_normal ?x ?y ?direccion ?atacantes ?defendientes))
-        else (if (eq ?tipo ?*DAMA*) then
-            (bind ?mov (mov_dama ?x ?y ?atacantes ?defendientes))
-        ))
-        (if (and ?*MOV_FORZADO* (not ?prev_forzado)) then
-            (bind ?movimientos (create$))
+        (if (or (not ?pieza_a_mover) (eq (sub-string 2 3 ?pieza) ?pieza_a_mover)) then
             (bind ?prev_forzado ?*MOV_FORZADO*)
-        )
-        (if (eq ?prev_forzado ?*MOV_FORZADO*) then
-            (foreach ?m ?mov
-                (bind ?mov_completo (str-cat ?x ?y " " ?m))
-                (bind ?movimientos (append ?mov_completo ?movimientos))
+            (bind ?tipo (sub-string 1 1 ?pieza))
+            (bind ?x (string-to-field (sub-string 2 2 ?pieza)))
+            (bind ?y (string-to-field (sub-string 3 3 ?pieza)))
+            (if (eq ?tipo ?*PIEZA_NORMAL*) then
+                (bind ?mov (mov_pieza_normal ?x ?y ?direccion ?atacantes ?defendientes))
+            else (if (eq ?tipo ?*DAMA*) then
+                (bind ?mov (mov_dama ?x ?y ?atacantes ?defendientes))
+            ))
+            (if (and ?*MOV_FORZADO* (not ?prev_forzado)) then
+                (bind ?movimientos (create$))
+                (bind ?prev_forzado ?*MOV_FORZADO*)
+            )
+            (if (eq ?prev_forzado ?*MOV_FORZADO*) then
+                (foreach ?m ?mov
+                    (bind ?mov_completo (str-cat ?x ?y " " ?m))
+                    (bind ?movimientos (append ?mov_completo ?movimientos))
+                )
             )
         )
     )
@@ -520,8 +541,8 @@
 ; devuelve una string que contiene las cordenadas de la pieza y las de
 ; la casilla destino
 ; >
-(deffunction JUEGO::pedir_mov(?blancas ?negras ?juegan_blancas)
-    (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas))
+(deffunction JUEGO::pedir_mov(?blancas ?negras ?juegan_blancas ?pieza_a_mover)
+    (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas ?pieza_a_mover))
     (while TRUE
         (print_tablero ?blancas ?negras)
 
@@ -577,31 +598,31 @@
     )
 )
 
-(deffunction JUEGO::turno_jugador(?blancas ?negras ?color)
-    (bind ?mov (pedir_mov ?blancas ?negras ?color))
+(deffunction JUEGO::turno_jugador(?blancas ?negras ?color ?pieza_a_mover)
+    (bind ?mov (pedir_mov ?blancas ?negras ?color ?pieza_a_mover))
     (aplicar_movimiento ?blancas ?negras ?mov ?color)
     (printout t ?mov crlf)
 )
 
-(deffunction JUEGO::turno_ia(?blancas ?negras ?color)
-    (turno_jugador ?blancas ?negras ?color)
+(deffunction JUEGO::turno_ia(?blancas ?negras ?color ?pieza_a_mover)
+    (turno_jugador ?blancas ?negras ?color ?pieza_a_mover)
 )
 
-(deffunction JUEGO::turno(?blancas ?negras ?verbose)
+(deffunction JUEGO::turno(?blancas ?negras ?verbose ?pieza_a_mover)
     (if (eq ?*TURNO* ?*COLOR_J*) then
         (if ?verbose then
             (printout t "=================" crlf)
             (printout t "TURNO DEL JUGADOR" crlf)
             (printout t "=================" crlf)
         )
-        (turno_jugador ?blancas ?negras ?*COLOR_J*)
+        (turno_jugador ?blancas ?negras ?*COLOR_J* ?pieza_a_mover)
     else
         (if ?verbose then
             (printout t "===================" crlf)
             (printout t "TURNO DEL ORDENADOR" crlf)
             (printout t "===================" crlf)
         )
-        (turno_ia ?blancas ?negras (not ?*COLOR_J*))
+        (turno_ia ?blancas ?negras (not ?*COLOR_J*) ?pieza_a_mover)
     )
 )
 
@@ -611,6 +632,7 @@
 =>
     (retract ?f)
     (crear_tablero)
+    ; (crear_tablero_test)
 )
 
 (defrule JUEGO::turno_intermedio
@@ -618,17 +640,17 @@
     ; esta regla es para comprobar si hay más movimiento obligatorios en el
     ; mismo turno
     (declare (salience 60))
-    ?t <- (tablero_tmp (blancas $?b) (negras $?n))
+    ?t <- (tablero_tmp (blancas $?b) (negras $?n) (pieza_a_mover ?p))
     =>
     ; se calculan todos los movimientos posibles
-    (movimientos $?b $?n ?*TURNO*)
+    (movimientos $?b $?n ?*TURNO* ?p)
     (if (not ?*MOV_FORZADO*) then
         ; si no hay forzados, se crea un tablero normal y se pasa el turno
         (assert (tablero (blancas $?b) (negras $?n)))
         (cambiar_turno)
     else
         ; si hay forzados, se toma otro turno
-        (turno $?b $?n FALSE)
+        (turno $?b $?n FALSE ?p)
     )
     (retract ?t)
 )
@@ -637,7 +659,7 @@
     (declare (salience 50))
     ?t <- (tablero (blancas $?b) (negras $?n))
     =>
-    (turno $?b $?n TRUE)
+    (turno $?b $?n TRUE FALSE)
     (retract ?t)
 )
 
