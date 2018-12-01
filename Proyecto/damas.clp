@@ -281,6 +281,7 @@
 ; para crear un nuevo estado tablero
 ; devuelve el identificador del nuevo estado
 (deffunction JUEGO::aplicar_movimiento(?blancas ?negras ?mov ?color)
+
     (bind ?long (length ?mov))
     (bind ?pos_origen (sub-string 1 2 ?mov))
     (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
@@ -616,6 +617,7 @@
             )
         )
     )
+
     (return ?movimientos)
 )
 
@@ -625,6 +627,19 @@
 ; >
 (deffunction JUEGO::pedir_mov(?blancas ?negras ?juegan_blancas ?pieza_a_mover)
     (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas ?pieza_a_mover))
+   (if (eq (length ?pos_mov) 0) then
+   (if (eq ?juegan_blancas FALSE ) then
+   (assert(ganaronblancas))
+   (return)
+   else
+   (assert(ganaronnegras))
+   (return)
+   )
+   (printout t " fin del juego" crlf )
+   (assert(findejuego))
+   (return)
+   )
+
     (while TRUE
         (print_tablero ?blancas ?negras FALSE)
 
@@ -669,7 +684,7 @@
             (if (eq (length ?posicion) 3) then
                 (bind ?posicion (str-cat (sub-string 1 1 ?posicion) (sub-string 3 3 ?posicion)))
             )
-            (foreach ?mov ?pos_mov
+              (foreach ?mov ?pos_mov
                 (bind ?long (length ?mov))
                 (if (and (eq (sub-string 1 2 ?mov) ?pieza)
                     (eq (sub-string (- ?long 1) ?long ?mov) ?posicion)) then
@@ -683,7 +698,6 @@
 (deffunction JUEGO::turno_jugador(?blancas ?negras ?color ?pieza_a_mover)
     (bind ?mov (pedir_mov ?blancas ?negras ?color ?pieza_a_mover))
     (aplicar_movimiento ?blancas ?negras ?mov ?color)
-    (printout t ?mov crlf)
 )
 
 (deffunction JUEGO::turno_ia(?blancas ?negras ?color ?pieza_a_mover)
@@ -737,6 +751,14 @@
     (retract ?t)
 )
 
+(defrule JUEGO::findejuego
+    (declare (salience 100))
+    (findejuego)
+    =>
+    (halt)
+)
+
+
 (defrule JUEGO::turno
     (declare (salience 50))
     ?t <- (tablero (blancas $?b) (negras $?n))
@@ -744,6 +766,30 @@
     (turno $?b $?n TRUE FALSE)
     (retract ?t)
 )
+
+(defrule JUEGO::ganaronblancas
+    (declare(salience 101))
+    ?w <- (tablero (blancas $?b) (negras $?n))
+    (ganaronblancas)
+    =>
+    (assert(findejuego))
+    (printout t " han ganado las blancas")
+    (retract ?w)
+    (printout t " han ganado las blancas")
+)
+
+(defrule JUEGO::ganaronnegras
+    (declare(salience 102))
+    ?m <- (tablero (blancas $?b) (negras $?n))
+    (ganaronnegras)
+    =>
+    (assert(findejuego))
+    (printout t " han ganado las negras")
+    (retract ?m)
+    (printout t " han ganado las negras")
+)
+
+
 
 (defrule JUEGO::salir
     (declare (salience 90))
