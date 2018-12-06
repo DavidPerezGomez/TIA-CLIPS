@@ -10,6 +10,7 @@
     ?*PIEZA_NORMAL* = "N"
     ?*DAMA* = "D"
     ?*MOV_FORZADO* = FALSE
+    ?*CORONADO* = FALSE
     ?*SYMB_PEON_B* = "o" ; simbolo para las blancas
     ?*SYMB_PEON_N* = "x" ; simbolo para las negras
     ?*SYMB_DAMA_B* = "O" ; simbolo para las damas blancas
@@ -276,17 +277,14 @@
     (return FALSE)
 )
 
-; aplica el movimiento ?mov al tablero formado por ?blancas y ?negras
-; genera un nuevo par de vectores de blancas y negras y los utiliza
-; para crear un nuevo estado tablero
-; devuelve el identificador del nuevo estado
-(deffunction JUEGO::aplicar_movimiento(?blancas ?negras ?mov ?color)
-
+; calcula el resultado de realizar el movimiento ?mov sobre el tablero
+; devuelve una string con las blancas y las negras separadas por un '|'
+; ej: "N11 N34 D23|N56 N71"
+(deffunction calcular_movimiento(?blancas ?negras ?mov ?color )
     (bind ?long (length ?mov))
     (bind ?pos_origen (sub-string 1 2 ?mov))
     (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
     (bind ?encontrada FALSE)
-    (bind ?coronado FALSE)
     ; generalización de las listas de piezas en ?aliadas y ?enemigas
     (if ?color then
         (bind ?aliadas ?blancas)
@@ -315,7 +313,7 @@
                 (if (eq ?tipo ?*PIEZA_NORMAL*) then
                 ; si la pieza llega al final del tablero y es un peón, se corona
                     (bind ?tipo ?*DAMA*)
-                    (bind ?coronado TRUE)
+                    (bind ?*CORONADO* TRUE)
                 )
             )
             (bind ?pieza_movida (sym-cat ?tipo ?pos_destino))
@@ -361,12 +359,25 @@
         (bind ?nuevas_blancas ?nuevas_enemigas)
         (bind ?nuevas_negras ?nuevas_aliadas)
     )
+    (return (str-cat (implode$ ?nuevas_blancas) "|" (implode$ ?nuevas_negras)))
+)
 
+; aplica el movimiento ?mov al tablero formado por ?blancas y ?negras
+; genera un nuevo par de vectores de blancas y negras y los utiliza
+; para crear un nuevo estado tablero
+; devuelve el identificador del nuevo estado
+(deffunction JUEGO::aplicar_movimiento(?blancas ?negras ?mov ?color)
+    (bind ?resultado (calcular_movimiento ?blancas ?negras ?mov ?color))
+    (bind ?index_separador (str-index "|" ?resultado))
+    (bind ?nuevas_blancas (explode$ (sub-string 1 (- ?index_separador 1) ?resultado)))
+    (bind ?nuevas_negras (explode$ (sub-string (+ ?index_separador 1) (length ?resultado) ?resultado)))
     ; se crea el tablero con las nuevas piezas
-    (if (and ?*MOV_FORZADO* (not ?coronado)) then
+    (if (and ?*MOV_FORZADO* (not ?*CORONADO*)) then
         ; si alguno de los movimientos ha sido forzado, hay posibilidad de que
         ; haya más capturas posibles en el mism turno.
         ; se hace un tablero_tmp para investigar
+        (bind ?long (length ?mov))
+        (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
         (return (assert (tablero_tmp (blancas ?nuevas_blancas) (negras ?nuevas_negras) (pieza_a_mover ?pos_destino))))
     else
         ; el turno se ha terminado. se crea el nuevo tablero
@@ -584,6 +595,7 @@
 ; > ("13 24" "33 24" "33 44" "53 44" "53 64" "73 64" "73 84")
 (deffunction JUEGO::movimientos(?blancas ?negras ?juegan_blancas ?pieza_a_mover)
     (bind ?*MOV_FORZADO* FALSE)
+    (bind ?*CORONADO* FALSE)
     (if ?juegan_blancas then
         (bind ?atacantes ?blancas)
         (bind ?defendientes ?negras)
@@ -757,7 +769,6 @@
     =>
     (halt)
 )
-
 
 (defrule JUEGO::turno
     (declare (salience 50))
