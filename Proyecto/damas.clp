@@ -1,7 +1,9 @@
 ; ==============================================================================
 ; JUEGO
 ; ==============================================================================
-(defmodule JUEGO (export defglobal DIM COLOR_J))
+(defmodule JUEGO (export deftemplate tablero ia_movido)
+                 (export defglobal DIM COLOR_J MOV_FORZADO CORONADO MOV_IA)
+                 (export deffunction movimientos calcular_movimiento))
 
 (defglobal JUEGO
     ?*DIM* = 8 ; tamaño del tablero
@@ -11,6 +13,7 @@
     ?*DAMA* = "D"
     ?*MOV_FORZADO* = FALSE
     ?*CORONADO* = FALSE
+    ?*MOV_IA* = FALSE
     ?*SYMB_PEON_B* = "o" ; simbolo para las blancas
     ?*SYMB_PEON_N* = "x" ; simbolo para las negras
     ?*SYMB_DAMA_B* = "O" ; simbolo para las damas blancas
@@ -35,6 +38,8 @@
   (multislot negras)
   (slot pieza_a_mover)
 )
+
+(deftemplate JUEGO::ia_movido)
 
 (deffunction JUEGO::in(?item $?vector)
     (if (member$ ?item $?vector) then
@@ -724,13 +729,15 @@
             (printout t "=================" crlf)
         )
         (turno_jugador ?blancas ?negras ?*COLOR_J* ?pieza_a_mover)
+        (return TRUE)
     else
         (if ?verbose then
             (printout t "===================" crlf)
             (printout t "TURNO DEL ORDENADOR" crlf)
             (printout t "===================" crlf)
         )
-        (turno_ia ?blancas ?negras (not ?*COLOR_J*) ?pieza_a_mover)
+        ; (turno_ia ?blancas ?negras (not ?*COLOR_J*) ?pieza_a_mover)
+        (return FALSE)
     )
 )
 
@@ -774,7 +781,25 @@
     (declare (salience 50))
     ?t <- (tablero (blancas $?b) (negras $?n))
     =>
-    (turno $?b $?n TRUE FALSE)
+    (bind ?r (turno $?b $?n TRUE FALSE))
+    (if ?r then
+        (retract ?t)
+    else
+        (focus IA)
+        (return)
+    )
+)
+
+(defrule JUEGO::ia_movido
+    (declare (salience 60))
+    ?f <- (ia_movido)
+    ?t <- (tablero (blancas $?b) (negras $?n))
+    =>
+    (bind ?mov ?*MOV_IA*)
+    (printout t ?mov crlf)
+    (aplicar_movimiento $?b $?n ?mov (not ?*COLOR_J*))
+    (bind ?*MOV_IA* FALSE)
+    (retract ?f)
     (retract ?t)
 )
 
@@ -800,8 +825,6 @@
     (printout t " han ganado las negras")
 )
 
-
-
 (defrule JUEGO::salir
     (declare (salience 90))
     (salir)
@@ -811,6 +834,156 @@
 
 (deffacts JUEGO::inicializacion
     (inicializacion)
+)
+
+; ==============================================================================
+; IA
+; ==============================================================================
+(defmodule IA (import JUEGO deftemplate tablero ia_movido)
+              (import JUEGO defglobal COLOR_J MOV_FORZADO CORONADO MOV_IA)
+              (import JUEGO deffunction movimientos calcular_movimiento))
+
+(defglobal IA
+    ?*CONTADOR_ID* = 0
+    ?*MAX_PROF* = 4
+)
+
+(deftemplate IA::estado
+    (slot id)
+    (slot id_padre)
+    (slot nivel)
+    (multislot blancas)
+    (multislot negras)
+)
+
+(deftemplate IA::estado_tmp
+    (slot id)
+    (slot id_padre)
+    (slot nivel)
+    (multislot blancas)
+    (multislot negras)
+    (slot pieza_a_mover)
+)
+
+(deffunction inc_contador()
+    (bind ?*CONTADOR_ID* (+ ?*CONTADOR_ID* 1))
+    (return ?*CONTADOR_ID*)
+)
+
+(deffunction reset_contador()
+    (bind ?*CONTADOR_ID* 1)
+    (return ?*CONTADOR_ID*)
+)
+
+(deffunction IA::aplicar_movimiento(?blancas ?negras ?mov ?color ?id_padre ?nivel)
+    (bind ?resultado (calcular_movimiento ?blancas ?negras ?mov ?color))
+    (bind ?index_separador (str-index "|" ?resultado))
+    (bind ?nuevas_blancas (explode$ (sub-string 1 (- ?index_separador 1) ?resultado)))
+    (bind ?nuevas_negras (explode$ (sub-string (+ ?index_separador 1) (length ?resultado) ?resultado)))
+    (bind ?id ?*CONTADOR_ID*)
+    (inc_contador)
+    ; se crea el tablero con las nuevas piezas
+    (if (and ?*MOV_FORZADO* (not ?*CORONADO*)) then
+        ; si alguno de los movimientos ha sido forzado, hay posibilidad de que
+        ; haya más capturas posibles en el mism turno.
+        ; se hace un tablero_tmp para investigar
+        (bind ?long (length ?mov))
+        (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
+        (return (assert (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?nivel)
+                                    (blancas ?nuevas_blancas) (negras ?nuevas_negras)
+                                    (pieza_a_mover ?pos_destino))))
+    else
+        ; el turno se ha terminado. se crea el nuevo tablero
+        (return (assert (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel)
+                                (blancas ?nuevas_blancas) (negras ?nuevas_negras))))
+    )
+)
+
+(defrule IA::limpiar
+    (declare (salience 60))
+    (limpiar)
+    ?f <- (estado)
+    =>
+    (retract ?f)
+)
+
+(defrule IA::limpiar_tmp
+    (declare (salience 60))
+    (limpiar)
+    ?f <- (estado_tmp)
+    =>
+    (retract ?f)
+)
+
+(defrule IA::terminado
+    (declare (salience 10))
+    ?f <- (limpiar)
+    =>
+    (retract ?f)
+    (assert (ia_movido))
+    (focus JUEGO)
+    (return)
+)
+
+(defrule IA::inicio
+    (declare (salience 50))
+    ?t <- (tablero (blancas $?blancas) (negras $?negras))
+    =>
+    (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras)))
+    (reset_contador)
+    (set-strategy breadth)
+)
+
+(defrule IA::crear_arbol
+    (declare (salience 30))
+    ?e <- (estado (id ?id) (nivel ?n) (blancas $?blancas) (negras $?negras))
+    (test (< ?n ?*MAX_PROF*))
+    =>
+    (bind ?movimientos (movimientos $?blancas $?negras (not ?*COLOR_J*) FALSE))
+    (foreach ?mov ?movimientos
+        (aplicar_movimiento $?blancas $?negras ?mov (not ?*COLOR_J*) ?id (+ ?n 1))
+    )
+)
+
+(defrule IA:continuar_mov
+    (declare (salience 35))
+    ?e <- (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?n) (blancas $?blancas)
+                      (negras $?negras) (pieza_a_mover ?p))
+    (test (<= ?n ?*MAX_PROF*))
+    =>
+    (bind ?movimientos (movimientos $?blancas $?negras (not ?*COLOR_J*) FALSE))
+    (if (not ?*MOV_FORZADO*) then
+        ; si no hay forzados, se crea un tablero normal y se pasa el turno
+        (assert (estado (id ?*CONTADOR_ID*) (id_padre ?id_padre) (nivel ?n)
+                        (blancas $?blancas) (negras $?negras)))
+        (inc_contador)
+    else
+        ; si hay forzados, se toma otro turno
+        (foreach ?mov ?movimientos
+            (aplicar_movimiento $?blancas $?negras ?mov (not ?*COLOR_J*) ?id ?n)
+        )
+    )
+    (retract ?e)
+)
+
+(defrule IA::arbol_creado
+    (declare (salience 10))
+    (estado (nivel ?n))
+    (not (recorrer_arbol))
+    (not (limpiar))
+    (test (>= ?n ?*MAX_PROF*))
+    =>
+    (assert (recorrer_arbol))
+)
+
+(defrule IA:recorrer_arbol
+    (declare (salience 100))
+    ?f <- (recorrer_arbol)
+    =>
+    ; TODO implementar el recorrido del arbol
+    (bind ?*MOV_IA* "foo")
+    (assert (limpiar))
+    (retract ?f)
 )
 
 ; ==============================================================================
