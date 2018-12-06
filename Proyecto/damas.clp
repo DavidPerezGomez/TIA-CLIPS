@@ -313,7 +313,7 @@
         (if (eq ?pos ?pos_origen) then
             ; creamos la nueva pieza después de haber sido movida
             (if (or
-                    (and ?color (= 8 (string-to-field (sub-string 2 2 ?pos_destino))))
+                    (and ?color (= ?*DIM* (string-to-field (sub-string 2 2 ?pos_destino))))
                     (and (not ?color) (= 1 (string-to-field (sub-string 2 2 ?pos_destino))))
                 ) then
                 (if (eq ?tipo ?*PIEZA_NORMAL*) then
@@ -333,8 +333,9 @@
         ; si se ha encontrado, se reemplaza la pieza original por la movida
         (bind ?nuevas_aliadas (replace$ ?aliadas ?index ?index ?pieza_movida))
     else
-        ; si no se ha encontrado, se asume error y se sale del método
-        (return FALSE)
+        ; si no se ha encontrado, se asume error y se sale del juego
+        (printout t "mov. no encontrado" crlf)
+        (halt)
     )
     (bind ?lista (explode$ ?mov))
     (if (> (length$ ?lista) 2) then
