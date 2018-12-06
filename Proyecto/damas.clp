@@ -281,6 +281,7 @@
 ; devuelve una string con las blancas y las negras separadas por un '|'
 ; ej: "N11 N34 D23|N56 N71"
 (deffunction calcular_movimiento(?blancas ?negras ?mov ?color )
+    (bind ?*CORONADO* FALSE)
     (bind ?long (length ?mov))
     (bind ?pos_origen (sub-string 1 2 ?mov))
     (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
@@ -595,7 +596,6 @@
 ; > ("13 24" "33 24" "33 44" "53 44" "53 64" "73 64" "73 84")
 (deffunction JUEGO::movimientos(?blancas ?negras ?juegan_blancas ?pieza_a_mover)
     (bind ?*MOV_FORZADO* FALSE)
-    (bind ?*CORONADO* FALSE)
     (if ?juegan_blancas then
         (bind ?atacantes ?blancas)
         (bind ?defendientes ?negras)
