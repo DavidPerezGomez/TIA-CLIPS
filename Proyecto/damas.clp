@@ -336,25 +336,30 @@
         ; si no se ha encontrado, se asume error y se sale del método
         (return FALSE)
     )
-    (if (> (length$ (explode$ ?mov)) 2) then
-        (bind ?pos_capturada (sub-string 4 5 ?mov))
-        (bind ?encontrada FALSE)
-        (bind ?index 0)
-        ; iterar las enemigas buscando la pieza que se ha capturado
-        (loop-for-count (?i 1 (length$ ?enemigas))
-            (bind ?pieza (nth$ ?i ?enemigas))
-            (bind ?pos (sub-string 2 3 ?pieza))
-            ; si las posiciones son iguales
-            (if (eq ?pos_capturada ?pos) then
-                (bind ?encontrada TRUE)
-                ; guardamos el índice de la pieza
-                (bind ?index ?i)
-                (break)
+    (bind ?lista (explode$ ?mov))
+    (if (> (length$ ?lista) 2) then
+        (bind ?nuevas_enemigas ?enemigas)
+        (bind ?capturadas (subseq$ ?lista 2 (- (length$ ?lista) 1)))
+        (foreach ?capturada ?capturadas
+            (bind ?pos_capturada (str-cat ?capturada))
+            (bind ?encontrada FALSE)
+            (bind ?index 0)
+            ; iterar las enemigas buscando la pieza que se ha capturado
+            (loop-for-count (?i 1 (length$ ?enemigas))
+                (bind ?pieza (nth$ ?i ?enemigas))
+                (bind ?pos (sub-string 2 3 ?pieza))
+                ; si las posiciones son iguales
+                (if (eq ?pos_capturada ?pos) then
+                    (bind ?encontrada TRUE)
+                    ; guardamos el índice de la pieza
+                    (bind ?index ?i)
+                    (break)
+                )
             )
-        )
-        (if ?encontrada then
-            ; si se ha encontrado, se elimina la pieza capturada de la lista
-            (bind ?nuevas_enemigas (delete$ ?enemigas ?index ?index))
+            (if ?encontrada then
+                ; si se ha encontrado, se elimina la pieza capturada de la lista
+                (bind ?nuevas_enemigas (delete$ ?nuevas_enemigas ?index ?index))
+            )
         )
     )
     ; se recuperan los colores de las piezas
@@ -502,7 +507,7 @@
     ; los movimientos de cada diagonal se añadirán a ?mov
     (foreach ?horizontal (create$ 1 -1)
         (foreach ?vertical (create$ 1 -1)
-            ; los moviminetos de la diagnoanal
+            ; los movimientos de la diagnonal
             (bind ?diagonal (create$))
             ; estado de búsqueda. si FALSE, no se ha encontrado ninguna pieza
             ; en esta diagonal. si se ha encontrado algu pieza enemiga, se
