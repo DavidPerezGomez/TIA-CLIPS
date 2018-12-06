@@ -3,7 +3,7 @@
 ; ==============================================================================
 (defmodule JUEGO (export deftemplate tablero ia_movido)
                  (export defglobal DIM COLOR_J MOV_FORZADO CORONADO MOV_IA)
-                 (export deffunction movimientos calcular_movimiento))
+                 (export deffunction movimientos calcular_movimiento heuristico in append))
 
 (defglobal JUEGO
     ?*DIM* = 8 ; tamaño del tablero
@@ -252,8 +252,8 @@
     )
 )
 
-(deffunction JUEGO::heuristco(?blancas ?negras ?color)
-    (bind ?heuristco -1)
+(deffunction JUEGO::heuristico(?blancas ?negras ?color)
+    (bind ?heuristico -1)
     ; criterios y su ponderación:
     ; valor de las piezas
     (bind ?pond_piezas 1)
@@ -266,6 +266,7 @@
     ; componente aleatorios
     ; (bind ?rand (random -10 10))
     (bind ?pond_rand 0.1)
+    (return (random 1 100))
 )
 
 ; este no hace falta. lo dejo por si acaso
@@ -847,11 +848,13 @@
 ; ==============================================================================
 (defmodule IA (import JUEGO deftemplate tablero ia_movido)
               (import JUEGO defglobal COLOR_J MOV_FORZADO CORONADO MOV_IA)
-              (import JUEGO deffunction movimientos calcular_movimiento))
+              (import JUEGO deffunction movimientos calcular_movimiento heuristico in append))
 
 (defglobal IA
     ?*CONTADOR_ID* = 0
     ?*MAX_PROF* = 4
+    ?*INF* = 99999
+    ?*M_INF* = -99999
 )
 
 (deftemplate IA::estado
@@ -860,6 +863,10 @@
     (slot nivel)
     (multislot blancas)
     (multislot negras)
+    (slot movimiento)
+    (slot valor (default FALSE))
+    (slot alfa (default ?*M_INF*))
+    (slot beta (default ?*INF*))
 )
 
 (deftemplate IA::estado_tmp
@@ -868,61 +875,98 @@
     (slot nivel)
     (multislot blancas)
     (multislot negras)
+    (slot movimiento)
     (slot pieza_a_mover)
+    (slot valor (default FALSE))
+    (slot alfa (default ?*M_INF*))
+    (slot beta (default ?*INF*))
 )
 
-(deffunction inc_contador()
+(deftemplate pos_solucion
+    (slot valor)
+    (slot movimiento)
+)
+
+(deftemplate IA::control
+    (slot cur_par (default 0))
+    (multislot visitados)
+)
+
+(deffunction IA::inc_contador()
     (bind ?*CONTADOR_ID* (+ ?*CONTADOR_ID* 1))
     (return ?*CONTADOR_ID*)
 )
 
-(deffunction reset_contador()
+(deffunction IA::reset_contador()
     (bind ?*CONTADOR_ID* 1)
     (return ?*CONTADOR_ID*)
 )
 
-(deffunction IA::aplicar_movimiento(?blancas ?negras ?mov ?color ?id_padre ?nivel)
+(deffunction IA::reset_control()
+    (assert (control))
+)
+
+(deffunction IA::aplicar_movimiento(?blancas ?negras ?mov ?color ?id_padre ?nivel ?mov_acc)
     (bind ?resultado (calcular_movimiento ?blancas ?negras ?mov ?color))
     (bind ?index_separador (str-index "|" ?resultado))
     (bind ?nuevas_blancas (explode$ (sub-string 1 (- ?index_separador 1) ?resultado)))
     (bind ?nuevas_negras (explode$ (sub-string (+ ?index_separador 1) (length ?resultado) ?resultado)))
     (bind ?id ?*CONTADOR_ID*)
     (inc_contador)
-    ; se crea el tablero con las nuevas piezas
-    (if (and ?*MOV_FORZADO* (not ?*CORONADO*)) then
-        ; si alguno de los movimientos ha sido forzado, hay posibilidad de que
-        ; haya más capturas posibles en el mism turno.
-        ; se hace un tablero_tmp para investigar
-        (bind ?long (length ?mov))
-        (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
-        (return (assert (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?nivel)
-                                    (blancas ?nuevas_blancas) (negras ?nuevas_negras)
-                                    (pieza_a_mover ?pos_destino))))
+    (if ?mov_acc then
+        (bind ?movimiento (str-cat (sub-string 1 (- (length ?mov_acc) 3) ?mov_acc)
+                                   (sub-string 3 (length ?mov) ?mov)))
     else
-        ; el turno se ha terminado. se crea el nuevo tablero
-        (return (assert (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel)
-                                (blancas ?nuevas_blancas) (negras ?nuevas_negras))))
+        (bind ?movimiento ?mov)
+    )
+    (if (or (= (length$ ?nuevas_blancas) 0) (= (length$ ?nuevas_negras) 0)) then
+        (bind ?heur (heuristico ?nuevas_blancas ?nuevas_negras (not ?*COLOR_J*)))
+        (return (assert (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel) (valor ?heur)
+                                (blancas ?nuevas_blancas) (negras ?nuevas_negras)
+                                (movimiento ?movimiento))))
+    else
+        ; se crea el tablero con las nuevas piezas
+        (if (and ?*MOV_FORZADO* (not ?*CORONADO*)) then
+            ; si alguno de los movimientos ha sido forzado, hay posibilidad de que
+            ; haya más capturas posibles en el mism turno.
+            ; se hace un tablero_tmp para investigar
+            (bind ?long (length ?mov))
+            (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
+            (return (assert (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?nivel)
+                                        (blancas ?nuevas_blancas) (negras ?nuevas_negras)
+                                        (pieza_a_mover ?pos_destino) (movimiento ?movimiento))))
+        else
+            ; el turno se ha terminado. se crea el nuevo tablero
+            (if (or (= (length$ ?nuevas_blancas) 0) (= (length$ ?nuevas_negras) 0) (= ?nivel ?*MAX_PROF*)) then
+                (bind ?heur (heuristico ?nuevas_blancas ?nuevas_negras (not ?*COLOR_J*)))
+            else
+                (bind ?heur FALSE)
+            )
+            (return (assert (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel) (valor ?heur)
+                                    (blancas ?nuevas_blancas) (negras ?nuevas_negras)
+                                    (movimiento ?movimiento))))
+        )
     )
 )
 
 (defrule IA::limpiar
-    (declare (salience 60))
+    (declare (salience 200))
     (limpiar)
     ?f <- (estado)
     =>
     (retract ?f)
 )
 
-(defrule IA::limpiar_tmp
-    (declare (salience 60))
+(defrule IA::limpiar2
+    (declare (salience 200))
     (limpiar)
-    ?f <- (estado_tmp)
+    ?f <- (pos_solucion)
     =>
     (retract ?f)
 )
 
 (defrule IA::terminado
-    (declare (salience 10))
+    (declare (salience 190))
     ?f <- (limpiar)
     =>
     (retract ?f)
@@ -932,41 +976,70 @@
 )
 
 (defrule IA::inicio
-    (declare (salience 50))
+    (declare (salience 0))
     ?t <- (tablero (blancas $?blancas) (negras $?negras))
     =>
-    (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras)))
-    (reset_contador)
-    (set-strategy breadth)
+    (bind ?movimientos (movimientos $?blancas $?negras (not ?*COLOR_J*) FALSE))
+    (if (= 1 (length$ ?movimientos)) then
+        (bind ?*MOV_IA* (nth$ 1 ?movimientos))
+        (assert (limpiar))
+    else
+        (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento "")))
+        (reset_contador)
+        (set-strategy breadth)
+    )
 )
 
 (defrule IA::crear_arbol
     (declare (salience 30))
+    (not (recorrer_arbol))
+    (not (fin))
+    (not (limpiar))
     ?e <- (estado (id ?id) (nivel ?n) (blancas $?blancas) (negras $?negras))
     (test (< ?n ?*MAX_PROF*))
     =>
-    (bind ?movimientos (movimientos $?blancas $?negras (not ?*COLOR_J*) FALSE))
+    (bind ?nuevo_nivel (+ ?n 1))
+    (if (= 0 (mod ?nuevo_nivel 2)) then
+        (bind ?color ?*COLOR_J*)
+    else
+        (bind ?color (not ?*COLOR_J*))
+    )
+    (bind ?movimientos (movimientos $?blancas $?negras ?color FALSE))
     (foreach ?mov ?movimientos
-        (aplicar_movimiento $?blancas $?negras ?mov (not ?*COLOR_J*) ?id (+ ?n 1))
+        (aplicar_movimiento $?blancas $?negras ?mov ?color ?id ?nuevo_nivel FALSE)
     )
 )
 
-(defrule IA:continuar_mov
+(defrule IA::continuar_mov
     (declare (salience 35))
+    (not (recorrer_arbol))
+    (not (fin))
+    (not (limpiar))
     ?e <- (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?n) (blancas $?blancas)
-                      (negras $?negras) (pieza_a_mover ?p))
+                      (negras $?negras) (pieza_a_mover ?p) (movimiento ?movimiento))
     (test (<= ?n ?*MAX_PROF*))
     =>
-    (bind ?movimientos (movimientos $?blancas $?negras (not ?*COLOR_J*) FALSE))
+    (if (= 0 (mod ?n 2)) then
+        (bind ?color ?*COLOR_J*)
+    else
+        (bind ?color (not ?*COLOR_J*))
+    )
+    (bind ?movimientos (movimientos $?blancas $?negras ?color FALSE))
     (if (not ?*MOV_FORZADO*) then
+        (if (= ?n ?*MAX_PROF*) then
+            (bind ?heur (heuristico $?blancas $?negras ?color))
+        else
+            (bind ?heur FALSE)
+        )
         ; si no hay forzados, se crea un tablero normal y se pasa el turno
         (assert (estado (id ?*CONTADOR_ID*) (id_padre ?id_padre) (nivel ?n)
-                        (blancas $?blancas) (negras $?negras)))
+                        (blancas $?blancas) (negras $?negras) (valor ?heur)
+                        (movimiento ?movimiento)))
         (inc_contador)
     else
         ; si hay forzados, se toma otro turno
         (foreach ?mov ?movimientos
-            (aplicar_movimiento $?blancas $?negras ?mov (not ?*COLOR_J*) ?id ?n)
+            (aplicar_movimiento $?blancas $?negras ?mov ?color ?id ?n ?movimiento)
         )
     )
     (retract ?e)
@@ -979,17 +1052,86 @@
     (not (limpiar))
     (test (>= ?n ?*MAX_PROF*))
     =>
+    (reset_control)
     (assert (recorrer_arbol))
 )
 
-(defrule IA:recorrer_arbol
+(defrule IA::bajar
+    (declare (salience 110))
+    (recorrer_arbol)
+    ?control <- (control (cur_par ?cur_par) (visitados $?visitados))
+    ?e <- (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel))
+    (test (and (eq ?id_padre ?cur_par) (not (in ?id $?visitados))))
+    =>
+    (if (not (eq ?nivel ?*MAX_PROF*)) then
+        (bind $?visitados (append ?id $?visitados))
+        (bind $?cur_par ?id)
+        (modify ?control (cur_par ?cur_par) (visitados ?visitados))
+    )
+)
+
+(defrule IA::subir
+    (declare (salience 120))
+    (recorrer_arbol)
+    ?control <- (control (cur_par ?cur_par) (visitados $?visitados))
+    ?estado <- (estado (id ?id_e) (id_padre ?id_padre) (nivel ?nivel) (valor ?valor) (movimiento ?mov))
+    (test (not (eq ?valor FALSE)))
+    (test (eq ?id_padre ?cur_par))
+    ?padre <- (estado (id ?id_p) (id_padre ?id_abuelo) (nivel ?nivel_p) (valor ?valor_p)
+                      (alfa ?alfa) (beta ?beta))
+    (test (= ?id_p ?cur_par))
+    =>
+    (bind ?min (= 0 (mod ?nivel_p 2)))
+    (if ?min then
+        (if (not ?valor_p) then
+            (bind ?valor_p ?*INF*)
+        )
+        (bind ?nuevo_valor_p (min ?valor_p ?valor))
+        (bind ?nuevo_alfa ?alfa)
+        (bind ?nuevo_beta (min ?beta ?nuevo_valor_p))
+    else
+        (if (not ?valor_p) then
+            (bind ?valor_p ?*M_INF*)
+        )
+        (bind ?nuevo_valor_p (max ?valor_p ?valor))
+        (bind ?nuevo_alfa (max ?alfa ?nuevo_valor_p))
+        (bind ?nuevo_beta ?beta)
+    )
+    (modify ?padre (valor ?nuevo_valor_p) (alfa ?nuevo_alfa) (beta ?nuevo_beta))
+    (if (> ?nuevo_alfa ?nuevo_beta) then
+        (bind $?cur_par ?id_abuelo)
+        (modify ?control (cur_par ?cur_par))
+    )
+    (if (= 0 ?id_padre) then
+        (assert (pos_solucion (valor ?valor) (movimiento ?mov)))
+    )
+    (retract ?estado)
+)
+
+(defrule IA::subir2
     (declare (salience 100))
     ?f <- (recorrer_arbol)
+    ?control <- (control (cur_par ?cur_par) (visitados $?visitados))
+    ?e <- (estado (id ?id) (id_padre ?id_padre) (valor ?valor))
+    (test (eq ?id ?cur_par))
+    (test (not (eq ?id_padre FALSE)))
     =>
-    ; TODO implementar el recorrido del arbol
-    (bind ?*MOV_IA* "foo")
-    (assert (limpiar))
+    (bind $?cur_par ?id_padre)
+    (modify ?control (cur_par ?cur_par))
+)
+
+(defrule IA::fin
+    (declare (salience 90))
+    ?f <- (recorrer_arbol)
+    ?control <- (control (cur_par 0) (visitados $?visitados))
+    ?origen <- (estado (id 0) (valor ?valor_final))
+    ?s <- (pos_solucion (valor ?valor) (movimiento ?mov))
+    (test (eq ?valor ?valor_final))
+    =>
+    (bind ?*MOV_IA* ?mov)
     (retract ?f)
+    (retract ?control)
+    (assert (limpiar))
 )
 
 ; ==============================================================================
