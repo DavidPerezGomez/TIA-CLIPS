@@ -878,17 +878,15 @@
     (slot movimiento)
     (slot pieza_a_mover)
     (slot valor (default FALSE))
-    (slot alfa (default ?*M_INF*))
-    (slot beta (default ?*INF*))
 )
 
-(deftemplate pos_solucion
+(deftemplate IA::pos_solucion
     (slot valor)
     (slot movimiento)
 )
 
 (deftemplate IA::control
-    (slot cur_par (default 0))
+    (slot nodo_actual (default 0))
     (multislot visitados)
 )
 
@@ -993,7 +991,6 @@
 (defrule IA::crear_arbol
     (declare (salience 30))
     (not (recorrer_arbol))
-    (not (fin))
     (not (limpiar))
     ?e <- (estado (id ?id) (nivel ?n) (blancas $?blancas) (negras $?negras))
     (test (< ?n ?*MAX_PROF*))
@@ -1013,7 +1010,6 @@
 (defrule IA::continuar_mov
     (declare (salience 35))
     (not (recorrer_arbol))
-    (not (fin))
     (not (limpiar))
     ?e <- (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?n) (blancas $?blancas)
                       (negras $?negras) (pieza_a_mover ?p) (movimiento ?movimiento))
@@ -1059,71 +1055,99 @@
 (defrule IA::bajar
     (declare (salience 110))
     (recorrer_arbol)
-    ?control <- (control (cur_par ?cur_par) (visitados $?visitados))
-    ?e <- (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel))
-    (test (and (eq ?id_padre ?cur_par) (not (in ?id $?visitados))))
+    ?control <- (control (nodo_actual ?nodo_actual) (visitados $?visitados))
+    ?actual <- (estado (id ?id_a) (alfa ?alfa) (beta ?beta))
+    ?hijo <- (estado (id ?id_h) (id_padre ?id_padre) (nivel ?nivel))
+    (test (and (eq ?id_padre ?id_a ?nodo_actual) (not (in ?id_h $?visitados))))
     =>
     (if (not (eq ?nivel ?*MAX_PROF*)) then
-        (bind $?visitados (append ?id $?visitados))
-        (bind $?cur_par ?id)
-        (modify ?control (cur_par ?cur_par) (visitados ?visitados))
+        (bind $?visitados (append ?id_h $?visitados))
+        (bind $?nodo_actual ?id_h)
+        (modify ?control (nodo_actual ?nodo_actual) (visitados ?visitados))
+        (modify ?hijo (alfa ?alfa) (beta ?beta))
     )
 )
 
 (defrule IA::subir
     (declare (salience 120))
     (recorrer_arbol)
-    ?control <- (control (cur_par ?cur_par) (visitados $?visitados))
-    ?estado <- (estado (id ?id_e) (id_padre ?id_padre) (nivel ?nivel) (valor ?valor) (movimiento ?mov))
-    (test (not (eq ?valor FALSE)))
-    (test (eq ?id_padre ?cur_par))
-    ?padre <- (estado (id ?id_p) (id_padre ?id_abuelo) (nivel ?nivel_p) (valor ?valor_p)
-                      (alfa ?alfa) (beta ?beta))
-    (test (= ?id_p ?cur_par))
+    ?control <- (control (nodo_actual ?nodo_actual) (visitados $?visitados))
+    ?actual <- (estado (id ?id_a) (id_padre ?id_abuelo) (nivel ?nivel_a) (valor ?valor_a)
+                (alfa ?alfa_a) (beta ?beta_a))
+    ?hijo <- (estado (id ?id_h) (id_padre ?id_padre) (nivel ?nivel_h) (valor ?valor_h) (movimiento ?mov)
+                (alfa ?alfa_h) (beta ?beta_h))
+    (test (not (eq ?valor_h FALSE)))
+    (test (eq ?id_padre ?id_a ?nodo_actual))
     =>
-    (bind ?min (= 0 (mod ?nivel_p 2)))
-    (if ?min then
-        (if (not ?valor_p) then
-            (bind ?valor_p ?*INF*)
+    (bind ?max (= 0 (mod ?nivel_a 2)))
+    (if ?max then
+        (if (not ?valor_a) then
+            (bind ?valor_a ?*M_INF*)
         )
-        (bind ?nuevo_valor_p (min ?valor_p ?valor))
-        (bind ?nuevo_alfa ?alfa)
-        (bind ?nuevo_beta (min ?beta ?nuevo_valor_p))
+        (bind ?nuevo_valor_a (max ?valor_a ?valor_h))
+        (bind ?nuevo_alfa_a (max ?alfa_a ?nuevo_valor_a))
+        (bind ?nuevo_beta_a ?beta_a)
     else
-        (if (not ?valor_p) then
-            (bind ?valor_p ?*M_INF*)
+        (if (not ?valor_a) then
+            (bind ?valor_a ?*INF*)
         )
-        (bind ?nuevo_valor_p (max ?valor_p ?valor))
-        (bind ?nuevo_alfa (max ?alfa ?nuevo_valor_p))
-        (bind ?nuevo_beta ?beta)
+        (bind ?nuevo_valor_a (min ?valor_a ?valor_h))
+        (bind ?nuevo_alfa_a ?alfa_a)
+        (bind ?nuevo_beta_a (min ?beta_a ?nuevo_valor_a))
     )
-    (modify ?padre (valor ?nuevo_valor_p) (alfa ?nuevo_alfa) (beta ?nuevo_beta))
-    (if (> ?nuevo_alfa ?nuevo_beta) then
-        (bind $?cur_par ?id_abuelo)
-        (modify ?control (cur_par ?cur_par))
+    (modify ?actual (valor ?nuevo_valor_a) (alfa ?nuevo_alfa_a) (beta ?nuevo_beta_a))
+    (if (> ?nuevo_alfa_a ?nuevo_beta_a) then
+        (bind ?nodo_actual ?id_abuelo)
+        (if (not ?nodo_actual) then
+            (bind $?nodo_actual 0)
+        )
+        (modify ?control (nodo_actual ?nodo_actual))
+        ; (if (= 0 (mod (- ?nivel_h 2) 2)) then
+        ;     (if (> ?*NIV_BETA* (- ?nivel_h 2)) then
+        ;         (bind ?*BETA* ?*INF*)
+        ;         (bind ?*NIV_BETA* ?*MAX_PROF*)
+        ;     )
+        ; else
+        ;     (if (> ?*NIV_ALFA* (- ?nivel_h 2)) then
+        ;         (bind ?*ALFA* ?*M_INF*)
+        ;         (bind ?*NIV_ALFA* ?*MAX_PROF*)
+        ;     )
+        ; )
     )
-    (if (= 0 ?id_padre) then
-        (assert (pos_solucion (valor ?valor) (movimiento ?mov)))
+    (if (= 0 ?id_a) then
+        (assert (pos_solucion (valor ?valor_h) (movimiento ?mov)))
     )
-    (retract ?estado)
+    (retract ?hijo)
 )
 
-(defrule IA::subir2
+(defrule IA::subir_nodo_actual
     (declare (salience 100))
     ?f <- (recorrer_arbol)
-    ?control <- (control (cur_par ?cur_par) (visitados $?visitados))
-    ?e <- (estado (id ?id) (id_padre ?id_padre) (valor ?valor))
-    (test (eq ?id ?cur_par))
+    ?control <- (control (nodo_actual ?nodo_actual))
+    ?actual <- (estado (id ?id_a) (id_padre ?id_padre) (nivel ?nivel) (valor ?valor)
+                (alfa ?alfa_a) (beta ?beta_a))
+    (test (eq ?id_a ?nodo_actual))
     (test (not (eq ?id_padre FALSE)))
     =>
-    (bind $?cur_par ?id_padre)
-    (modify ?control (cur_par ?cur_par))
+    (bind ?nodo_actual ?id_padre)
+    (modify ?control (nodo_actual ?nodo_actual))
+    ; (if (= 0 (mod (- ?nivel 1) 2)) then
+    ;     (if (> ?*NIV_BETA* (- ?nivel 1)) then
+    ;         (bind ?*BETA* ?*INF*)
+    ;         (bind ?*NIV_BETA* ?*MAX_PROF*)
+    ;     )
+    ; else
+    ;     (if (> ?*NIV_ALFA* (- ?nivel 1)) then
+    ;         (bind ?*ALFA* ?*M_INF*)
+    ;         (bind ?*NIV_ALFA* ?*MAX_PROF*)
+    ;     )
+    ; )
 )
 
 (defrule IA::fin
     (declare (salience 90))
     ?f <- (recorrer_arbol)
-    ?control <- (control (cur_par 0) (visitados $?visitados))
+    ?control <- (control (nodo_actual 0) (visitados $?visitados))
     ?origen <- (estado (id 0) (valor ?valor_final))
     ?s <- (pos_solucion (valor ?valor) (movimiento ?mov))
     (test (eq ?valor ?valor_final))
