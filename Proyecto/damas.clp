@@ -94,21 +94,31 @@
 ; 2|o| | | | | |o| |
 ; 1| | | | | | | |o|
 ; 0 1 2 3 4 5 6 7 8
-; (bind ?negras "N34 N63 N65")
 ; (bind ?blancas "N12 N23 N72 N81")
+; (bind ?negras "N34 N63 N65")
 ; --------
-; 6| |x| | | |o|
-; 5| | |x| | | |
-; 4| | | |o| | |
+; 6| |x| | | |x|
+; 5|o| |o| |x| |
+; 4| | | | | | |
 ; 3| | | | | | |
-; 2| | | | | | |
-; 1| | |o| | | |
+; 2| |o| |o| | |
+; 1|o| |X| | | |
 ; 0 1 2 3 4 5 6
-; (bind ?negras "N53 N44")
-; (bind ?blancas "N31")
+; (bind ?blancas "N11 N22 N42 N15 N35")
+; (bind ?negras "N26 D31 N55 N66")
+; --------
+; 6| |x| |X| |x|
+; 5|o| | | |x| |
+; 4| | | | | | |
+; 3| | |o| | | |
+; 2| | | | | | |
+; 1|o| | | | | |
+; 0 1 2 3 4 5 6
+; (bind ?blancas "N11 N22 N42 N15 N35")
+; (bind ?negras "N26 D31 N55 N66")
 (deffunction JUEGO::crear_tablero_test()
-    (bind ?blancas "N31 N44 N66")
-    (bind ?negras "N35 N26")
+    (bind ?blancas "N11 N33 N15")
+    (bind ?negras "N26 D46 N55 N66")
     ; Cambiar las fichas a multicampos
     (bind ?negras (explode$ ?negras))
     (bind ?blancas (explode$ ?blancas))
@@ -359,8 +369,8 @@
             (bind ?encontrada FALSE)
             (bind ?index 0)
             ; iterar las enemigas buscando la pieza que se ha capturado
-            (loop-for-count (?i 1 (length$ ?enemigas))
-                (bind ?pieza (nth$ ?i ?enemigas))
+            (loop-for-count (?i 1 (length$ ?nuevas_enemigas))
+                (bind ?pieza (nth$ ?i ?nuevas_enemigas))
                 (bind ?pos (sub-string 2 3 ?pieza))
                 ; si las posiciones son iguales
                 (if (eq ?pos_capturada ?pos) then
@@ -765,8 +775,8 @@
     ?f <- (inicializacion)
 =>
     (retract ?f)
-    ; (crear_tablero)
-    (crear_tablero_test)
+    (crear_tablero)
+    ; (crear_tablero_test)
 )
 
 (defrule JUEGO::turno_intermedio
@@ -815,6 +825,8 @@
     ?t <- (tablero (blancas $?b) (negras $?n))
     =>
     (bind ?mov ?*MOV_IA*)
+    (bind ?*MOV_FORZADO* FALSE)
+    (bind ?*CORONADO* FALSE)
     (printout t ?mov crlf)
     (aplicar_movimiento $?b $?n ?mov (not ?*COLOR_J*))
     (bind ?*MOV_IA* FALSE)
@@ -970,7 +982,7 @@
         ; se hace un estado_tmp para investigar
         (bind ?long (length ?mov))
         (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
-        (return (assert (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?nivel)
+        (return (assert (estado_tmp (id ?id_padre) (id_padre ?id_padre) (nivel ?nivel)
                                     (blancas ?nuevas_blancas) (negras ?nuevas_negras)
                                     (pieza_a_mover ?pos_destino) (movimiento ?movimiento))))
 
@@ -1032,15 +1044,55 @@
     ; se calculan los movimientos
     (bind ?movimientos (movimientos $?blancas $?negras (not ?*COLOR_J*) FALSE))
 
-    (if (= 1 (length$ ?movimientos)) then
+    ; comprobacion para encontrar casos en los que solo un movimiento es posible
+    ; para evitar tener que hacer un árbol de búsqueda
+    (bind ?unica_posib FALSE)
+    (bind ?buscar TRUE)
+    (while (and (= 1 (length$ ?movimientos)) ?buscar)
+        ; mientras solo un movimiento sea posible
+        ; se inicializa ?unica_posib en caso de que haga falta
+        (bind ?mov (nth$ 1 ?movimientos))
+        (if (not ?unica_posib) then
+            (bind ?unica_posib ?mov)
+        )
+
+        (if (and ?*MOV_FORZADO* (not ?*CORONADO*)) then
+            ; si se podría continuar el movimiento capturando más piezas
+            ; se añade la última captura a al movimiento hecho hasta ahora
+            (if (not (eq ?unica_posib ?mov)) then
+                (bind ?unica_posib (str-cat (sub-string 1 (- (length ?unica_posib) 3) ?unica_posib)
+                                          (sub-string 3 (length ?mov) ?mov)))
+            )
+
+            ; se calculan las nuevas posiciones y los posibles movimiento
+            (bind ?pieza (sub-string (- (length ?mov) 1) (length ?mov) ?mov))
+            (bind ?res (calcular_movimiento $?blancas $?negras ?mov (not ?*COLOR_J*)))
+            (bind ?index_separador (str-index "|" ?res))
+            (bind $?nuevas_blancas (explode$ (sub-string 1 (- ?index_separador 1) ?res)))
+            (bind $?nuevas_negras (explode$ (sub-string (+ ?index_separador 1) (length ?res) ?res)))
+            (bind ?movimientos (movimientos $?nuevas_blancas $?nuevas_negras (not ?*COLOR_J*) ?pieza))
+        else
+            ; el siguiente movimiento sería uno normal. no se continúa, y el
+            ; movimiento realizado es la unica posibilidad. no hace falta árbol.
+            (bind ?buscar FALSE)
+        )
+    )
+
+    ; cuando se encuentran más de una sola opción
+    (if ?unica_posib then
+        ; si la divergencia es obligatoria, hay que buscar. si no, no
+        (bind ?buscar (and ?*MOV_FORZADO* (not ?*CORONADO*)))
+    )
+
+    (if (not ?buscar) then
         ; si solo existe un movimiento posible, no hace falta IA
         ; se realiza ese movimiento y se termina la búsqueda
-        (bind ?*MOV_IA* (nth$ 1 ?movimientos))
+        (bind ?*MOV_IA* ?unica_posib)
         (assert (limpiar))
 
     else
         ; se crea el nodo raiz del árbol
-        (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento "")))
+        (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento FALSE)))
         (reset_contador)
         (set-strategy breadth)
     )
@@ -1284,7 +1336,7 @@
     ; y hay una posible solución con el mismo valor que el nodo raiz
     ?control <- (control (nodo_actual 0) (visitados $?visitados))
     ?origen <- (estado (id 0) (valor ?valor_final))
-    ?s <- (pos_solucion (valor ?valor) (movimiento ?mov))
+    ?solucion <- (pos_solucion (valor ?valor) (movimiento ?mov))
     (test (eq ?valor ?valor_final))
 
     =>
