@@ -94,9 +94,21 @@
 ; 2|o| | | | | |o| |
 ; 1| | | | | | | |o|
 ; 0 1 2 3 4 5 6 7 8
+; (bind ?negras "N34 N63 N65")
+; (bind ?blancas "N12 N23 N72 N81")
+; --------
+; 6| |x| | | |o|
+; 5| | |x| | | |
+; 4| | | |o| | |
+; 3| | | | | | |
+; 2| | | | | | |
+; 1| | |o| | | |
+; 0 1 2 3 4 5 6
+; (bind ?negras "N53 N44")
+; (bind ?blancas "N31")
 (deffunction JUEGO::crear_tablero_test()
-    (bind ?negras "N34 N63 N65")
-    (bind ?blancas "N12 N23 N72 N81")
+    (bind ?blancas "N31 N44 N66")
+    (bind ?negras "N35 N26")
     ; Cambiar las fichas a multicampos
     (bind ?negras (explode$ ?negras))
     (bind ?blancas (explode$ ?blancas))
@@ -753,8 +765,8 @@
     ?f <- (inicializacion)
 =>
     (retract ?f)
-    (crear_tablero)
-    ; (crear_tablero_test)
+    ; (crear_tablero)
+    (crear_tablero_test)
 )
 
 (defrule JUEGO::turno_intermedio
@@ -857,6 +869,12 @@
     ?*M_INF* = -99999
 )
 
+; Hecho para representar un estado en el árbol de búsqueda
+; nivel: proundidad a la que está el nodo. La raíz del árbol está en el nivel 0.
+; valor: heurístico asignado al nodo.
+; movimiento: movimiento realizado para pasar del nodo padre al actual.
+; Un estado se considera final si su nivel es igual a la máxima profundidad o
+; si su valor es distinto de FALSE.
 (deftemplate IA::estado
     (slot id)
     (slot id_padre)
@@ -869,6 +887,10 @@
     (slot beta (default ?*INF*))
 )
 
+; Hecho para representar un estado intermedio entre dos nodos de árbol.
+; Se utiliza cuando un turno requiere más de un movimiento.
+; El nivel en los estados_tmp no es el nivel del padre, sino el siguiente;
+; es el nivel que tendrán los nuevos estados creados a partir del estado_tmp.
 (deftemplate IA::estado_tmp
     (slot id)
     (slot id_padre)
@@ -880,11 +902,16 @@
     (slot valor (default FALSE))
 )
 
+; Estado auxiliar para guardar cada una de los posibles movimientos
+; que puede realizar el ordenador junto con el valor de heurístico
+; calculado para cada uno.
 (deftemplate IA::pos_solucion
     (slot valor)
     (slot movimiento)
 )
 
+; Estado auxiliar para almacenar el nodo actual y los nodos visitados
+; durante la búsqueda.
 (deftemplate IA::control
     (slot nodo_actual (default 0))
     (multislot visitados)
@@ -896,6 +923,7 @@
 )
 
 (deffunction IA::reset_contador()
+    ; se resetea a 1 porque 0 está reservado para la raiz
     (bind ?*CONTADOR_ID* 1)
     (return ?*CONTADOR_ID*)
 )
@@ -904,173 +932,252 @@
     (assert (control))
 )
 
+; Calcula los resultados del movimiento y crea los hecho correspondientes.
 (deffunction IA::aplicar_movimiento(?blancas ?negras ?mov ?color ?id_padre ?nivel ?mov_acc)
+    ; se calculan los resultados del movimiento
     (bind ?resultado (calcular_movimiento ?blancas ?negras ?mov ?color))
+
+    ; se obtienen las blancas y las negras a partir del resultado
     (bind ?index_separador (str-index "|" ?resultado))
     (bind ?nuevas_blancas (explode$ (sub-string 1 (- ?index_separador 1) ?resultado)))
     (bind ?nuevas_negras (explode$ (sub-string (+ ?index_separador 1) (length ?resultado) ?resultado)))
+
+    ; nuevo id
     (bind ?id ?*CONTADOR_ID*)
     (inc_contador)
+
+    ; si había movimiento parcial anterior, se tiene en cuenta
     (if ?mov_acc then
         (bind ?movimiento (str-cat (sub-string 1 (- (length ?mov_acc) 3) ?mov_acc)
                                    (sub-string 3 (length ?mov) ?mov)))
     else
         (bind ?movimiento ?mov)
     )
+
+    ; se crean los hechos
     (if (or (= (length$ ?nuevas_blancas) 0) (= (length$ ?nuevas_negras) 0)) then
+        ; si alguno de los lados está vacío
+        ; el estado es final, así que se le añade heurístico
         (bind ?heur (heuristico ?nuevas_blancas ?nuevas_negras (not ?*COLOR_J*)))
+
         (return (assert (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel) (valor ?heur)
                                 (blancas ?nuevas_blancas) (negras ?nuevas_negras)
                                 (movimiento ?movimiento))))
-    else
-        ; se crea el tablero con las nuevas piezas
-        (if (and ?*MOV_FORZADO* (not ?*CORONADO*)) then
-            ; si alguno de los movimientos ha sido forzado, hay posibilidad de que
-            ; haya más capturas posibles en el mism turno.
-            ; se hace un tablero_tmp para investigar
-            (bind ?long (length ?mov))
-            (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
-            (return (assert (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?nivel)
-                                        (blancas ?nuevas_blancas) (negras ?nuevas_negras)
-                                        (pieza_a_mover ?pos_destino) (movimiento ?movimiento))))
-        else
-            ; el turno se ha terminado. se crea el nuevo tablero
-            (if (or (= (length$ ?nuevas_blancas) 0) (= (length$ ?nuevas_negras) 0) (= ?nivel ?*MAX_PROF*)) then
-                (bind ?heur (heuristico ?nuevas_blancas ?nuevas_negras (not ?*COLOR_J*)))
-            else
-                (bind ?heur FALSE)
-            )
-            (return (assert (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel) (valor ?heur)
+
+    else (if (and ?*MOV_FORZADO* (not ?*CORONADO*)) then
+        ; si el movimiento ha sido forzado
+        ; hay posibilidad de que haya más capturas posibles en el mismo turno
+        ; se hace un estado_tmp para investigar
+        (bind ?long (length ?mov))
+        (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
+        (return (assert (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?nivel)
                                     (blancas ?nuevas_blancas) (negras ?nuevas_negras)
-                                    (movimiento ?movimiento))))
+                                    (pieza_a_mover ?pos_destino) (movimiento ?movimiento))))
+
+    else
+        ; turno normal. se crea el estado
+        (if (= ?nivel ?*MAX_PROF*) then
+            ; si se ha llegado a máxima profundidad
+            ; el estado es final, así que se le añade heurístico
+            (bind ?heur (heuristico ?nuevas_blancas ?nuevas_negras (not ?*COLOR_J*)))
+        else
+            (bind ?heur FALSE)
         )
-    )
+
+        (return (assert (estado (id ?id) (id_padre ?id_padre) (nivel ?nivel) (valor ?heur)
+                                (blancas ?nuevas_blancas) (negras ?nuevas_negras)
+                                (movimiento ?movimiento))))
+    ))
 )
 
-(defrule IA::limpiar
-    (declare (salience 200))
+; Regla para eliminar el árbol una vez terminada la búsqueda.
+(defrule IA::limpiar_arbol
+    (declare (salience 210))
     (limpiar)
     ?f <- (estado)
     =>
     (retract ?f)
 )
 
-(defrule IA::limpiar2
-    (declare (salience 200))
+; Regla para eliminar las posibles soluciones una vez terminada la búsqueda.
+(defrule IA::limpiar_sol
+    (declare (salience 210))
     (limpiar)
     ?f <- (pos_solucion)
     =>
     (retract ?f)
 )
 
+; Regla para devolver focus al juego.
 (defrule IA::terminado
-    (declare (salience 190))
+    (declare (salience 200))
     ?f <- (limpiar)
     =>
     (retract ?f)
+    ; ia_movido es un hecho del módulo JUEGO
     (assert (ia_movido))
+
     (focus JUEGO)
     (return)
 )
 
+; Regla para iniciar todos los procesos de la IA.
 (defrule IA::inicio
     (declare (salience 0))
+    ; cuando solo existe del tablero del juego
     ?t <- (tablero (blancas $?blancas) (negras $?negras))
+
     =>
+
+    ; se calculan los movimientos
     (bind ?movimientos (movimientos $?blancas $?negras (not ?*COLOR_J*) FALSE))
+
     (if (= 1 (length$ ?movimientos)) then
+        ; si solo existe un movimiento posible, no hace falta IA
+        ; se realiza ese movimiento y se termina la búsqueda
         (bind ?*MOV_IA* (nth$ 1 ?movimientos))
         (assert (limpiar))
+
     else
+        ; se crea el nodo raiz del árbol
         (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento "")))
         (reset_contador)
         (set-strategy breadth)
     )
 )
 
+; Regla para crear nodos del árbol a partir de otros existentes.
 (defrule IA::crear_arbol
     (declare (salience 30))
+    ; si estamos en el proceso de crear el árbol
     (not (recorrer_arbol))
     (not (limpiar))
-    ?e <- (estado (id ?id) (nivel ?n) (blancas $?blancas) (negras $?negras))
-    (test (< ?n ?*MAX_PROF*))
+
+    ; y existe un estado que no es final (no está en prof. max. y no tiene valor)
+    ?e <- (estado (id ?id) (nivel ?n) (blancas $?blancas) (negras $?negras) (valor ?valor))
+    (test (and (< ?n ?*MAX_PROF*) (not ?valor)))
+
     =>
+
     (bind ?nuevo_nivel (+ ?n 1))
+    ; se calcula quién realiza el movimiento (jugador/IA) dependiendo el nivel
     (if (= 0 (mod ?nuevo_nivel 2)) then
         (bind ?color ?*COLOR_J*)
     else
         (bind ?color (not ?*COLOR_J*))
     )
+
+    ; se calculan todos los movimientos y se utilizan para crear nuevos
+    ; nodos del árbol
     (bind ?movimientos (movimientos $?blancas $?negras ?color FALSE))
     (foreach ?mov ?movimientos
         (aplicar_movimiento $?blancas $?negras ?mov ?color ?id ?nuevo_nivel FALSE)
     )
 )
 
+; Regla para crear nodos del árbol a partir de estados intermedios.
 (defrule IA::continuar_mov
     (declare (salience 35))
+    ; si estamos en el proceso de crear el árbol
     (not (recorrer_arbol))
     (not (limpiar))
-    ?e <- (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?n) (blancas $?blancas)
-                      (negras $?negras) (pieza_a_mover ?p) (movimiento ?movimiento))
-    (test (<= ?n ?*MAX_PROF*))
+
+    ; y existe un estado_tmp que no está máx allá del final
+    ?e <- (estado_tmp (id ?id) (id_padre ?id_padre) (nivel ?nivel) (blancas $?blancas)
+                      (negras $?negras) (pieza_a_mover ?pieza) (movimiento ?movimiento))
+    (test (<= ?nivel ?*MAX_PROF*))
+
     =>
-    (if (= 0 (mod ?n 2)) then
+
+    ; se calcula quién realiza el movimiento (jugador/IA) dependiendo el nivel
+    (if (= 0 (mod ?nivel 2)) then
         (bind ?color ?*COLOR_J*)
     else
         (bind ?color (not ?*COLOR_J*))
     )
-    (bind ?movimientos (movimientos $?blancas $?negras ?color FALSE))
+
+    ; se calculan todos los movimientos
+    (bind ?movimientos (movimientos $?blancas $?negras ?color ?pieza))
     (if (not ?*MOV_FORZADO*) then
-        (if (= ?n ?*MAX_PROF*) then
+        ; si no hay ningún mov. forzado, se crea un tablero normal
+        (if (= ?nivel ?*MAX_PROF*) then
+            ; si se ha llegado a máxima profundidad
+            ; el estado es final, así que se le añade heurístico
             (bind ?heur (heuristico $?blancas $?negras ?color))
         else
             (bind ?heur FALSE)
         )
-        ; si no hay forzados, se crea un tablero normal y se pasa el turno
-        (assert (estado (id ?*CONTADOR_ID*) (id_padre ?id_padre) (nivel ?n)
+        (assert (estado (id ?*CONTADOR_ID*) (id_padre ?id_padre) (nivel ?nivel)
                         (blancas $?blancas) (negras $?negras) (valor ?heur)
                         (movimiento ?movimiento)))
         (inc_contador)
+
     else
-        ; si hay forzados, se toma otro turno
+        ; si hay forzados, se calculan los nuevos estados
         (foreach ?mov ?movimientos
-            (aplicar_movimiento $?blancas $?negras ?mov ?color ?id ?n ?movimiento)
+            (aplicar_movimiento $?blancas $?negras ?mov ?color ?id ?nivel ?movimiento)
         )
     )
+
+    ; se elimina el estado_tmp
     (retract ?e)
 )
 
+; Regla para determinar que el árbol ha terminado de crearse.
 (defrule IA::arbol_creado
+    ; menos prioridad que el resto de reglas relacionadas con
+    ; la creación del árbol
     (declare (salience 10))
-    (estado (nivel ?n))
+
+    ; si estamos en el proceso de crear el árbol
     (not (recorrer_arbol))
     (not (limpiar))
+
+    ; y existe un estado en la profundidad máxima
+    (estado (nivel ?n))
     (test (>= ?n ?*MAX_PROF*))
+
     =>
+
+    ; creamos el hecho de control y pasamos a recorrer el árbol
     (reset_control)
     (assert (recorrer_arbol))
 )
 
+; Regla para profundizar en el árbol.
 (defrule IA::bajar
     (declare (salience 110))
+    ; si estamos en proceso de recorrer el aŕbol
     (recorrer_arbol)
+
+    ; y el nodo actual tiene un hijo que no se ha visitado
     ?control <- (control (nodo_actual ?nodo_actual) (visitados $?visitados))
     ?actual <- (estado (id ?id_a) (alfa ?alfa) (beta ?beta))
-    ?hijo <- (estado (id ?id_h) (id_padre ?id_padre) (nivel ?nivel))
+    ?hijo <- (estado (id ?id_h) (id_padre ?id_padre) (nivel ?nivel_h))
     (test (and (eq ?id_padre ?id_a ?nodo_actual) (not (in ?id_h $?visitados))))
+
     =>
-    (if (not (eq ?nivel ?*MAX_PROF*)) then
+
+    (if (not (eq ?nivel_h ?*MAX_PROF*)) then
+        ; si el hijo no está en la profundidad máxima
+        ; el hijo se convierte en el nodo actual
         (bind $?visitados (append ?id_h $?visitados))
-        (bind $?nodo_actual ?id_h)
-        (modify ?control (nodo_actual ?nodo_actual) (visitados ?visitados))
+        (modify ?control (nodo_actual ?id_h) (visitados ?visitados))
+
+        ; y se le transmiten el alfa y beta del padre
         (modify ?hijo (alfa ?alfa) (beta ?beta))
     )
 )
 
+; Regla para propagar el valor de un nodo a su padre.
 (defrule IA::subir
+    ; más prioridad que la regla para profundizar (bajar)
     (declare (salience 120))
+
+    ; si estamos en proceso de recorrer el aŕbol
     (recorrer_arbol)
+
+    ; y el nodo actual tiene un hijo con valor distinto de FALSE
     ?control <- (control (nodo_actual ?nodo_actual) (visitados $?visitados))
     ?actual <- (estado (id ?id_a) (id_padre ?id_abuelo) (nivel ?nivel_a) (valor ?valor_a)
                 (alfa ?alfa_a) (beta ?beta_a))
@@ -1078,81 +1185,114 @@
                 (alfa ?alfa_h) (beta ?beta_h))
     (test (not (eq ?valor_h FALSE)))
     (test (eq ?id_padre ?id_a ?nodo_actual))
+
     =>
+
+    ; se comprueba si el nodo actual es un nodo de min o de max
     (bind ?max (= 0 (mod ?nivel_a 2)))
+
+    ; se calculan los nuevos valores del nodo actual
     (if ?max then
+        ; si el nodo actual es de maximizar
         (if (not ?valor_a) then
+            ; el valor por defecto del nodo actual es -∞
             (bind ?valor_a ?*M_INF*)
         )
+        ; el nuevo valor del nodo es el máximo entre su valor previo
+        ; y el valor del hijo
         (bind ?nuevo_valor_a (max ?valor_a ?valor_h))
+
+        ; el nuevo valor del alfa es el máximo entre su valor previo
+        ; y el nuevo valor del nodo
         (bind ?nuevo_alfa_a (max ?alfa_a ?nuevo_valor_a))
+
+        ; beta se mantiene
         (bind ?nuevo_beta_a ?beta_a)
     else
+        ; si el nodo actual es de minimizar
         (if (not ?valor_a) then
+            ; el valor por defecto del nodo actual es ∞
             (bind ?valor_a ?*INF*)
         )
+        ; el nuevo valor del nodo es el mínimo entre su valor previo
+        ; y el valor del hijo
         (bind ?nuevo_valor_a (min ?valor_a ?valor_h))
+
+        ; alfa se mantiene
         (bind ?nuevo_alfa_a ?alfa_a)
+
+        ; el nuevo valor del beta es el máximo entre su valor previo
+        ; y el nuevo valor del nodo
         (bind ?nuevo_beta_a (min ?beta_a ?nuevo_valor_a))
     )
     (modify ?actual (valor ?nuevo_valor_a) (alfa ?nuevo_alfa_a) (beta ?nuevo_beta_a))
+
     (if (> ?nuevo_alfa_a ?nuevo_beta_a) then
+        ; si alfa es mayor que beta
+        ; se podan el resto de ramas: se omiten el resto de hijos del
+        ; nodo actual y el padre del actual (abuelo del hijo) se convierte
+        ; en el nuevo nodo actual
         (bind ?nodo_actual ?id_abuelo)
         (if (not ?nodo_actual) then
-            (bind $?nodo_actual 0)
+            (bind ?nodo_actual 0)
         )
         (modify ?control (nodo_actual ?nodo_actual))
-        ; (if (= 0 (mod (- ?nivel_h 2) 2)) then
-        ;     (if (> ?*NIV_BETA* (- ?nivel_h 2)) then
-        ;         (bind ?*BETA* ?*INF*)
-        ;         (bind ?*NIV_BETA* ?*MAX_PROF*)
-        ;     )
-        ; else
-        ;     (if (> ?*NIV_ALFA* (- ?nivel_h 2)) then
-        ;         (bind ?*ALFA* ?*M_INF*)
-        ;         (bind ?*NIV_ALFA* ?*MAX_PROF*)
-        ;     )
-        ; )
     )
+
     (if (= 0 ?id_a) then
+        ; si el nodo actual es el nodo raiz
+        ; se crea una posible solución con el valor y el movimiento
+        ; del nodo hijo
         (assert (pos_solucion (valor ?valor_h) (movimiento ?mov)))
     )
+
+    ; se elimina el nodo hijo
     (retract ?hijo)
 )
 
+; Regla para subir el puntero al nodo actual.
 (defrule IA::subir_nodo_actual
+    ; menos prioridad que las reglas para profundizar (bajar) o propagar valores (subir)
     (declare (salience 100))
+
+    ; si estamos en proceso de recorrer el aŕbol
     ?f <- (recorrer_arbol)
+
+    ; y el nodo actual no es el nodo raiz
     ?control <- (control (nodo_actual ?nodo_actual))
     ?actual <- (estado (id ?id_a) (id_padre ?id_padre) (nivel ?nivel) (valor ?valor)
                 (alfa ?alfa_a) (beta ?beta_a))
     (test (eq ?id_a ?nodo_actual))
     (test (not (eq ?id_padre FALSE)))
+
     =>
+
+    ; el padre del actual se convierte en el nuevo actual
     (bind ?nodo_actual ?id_padre)
     (modify ?control (nodo_actual ?nodo_actual))
-    ; (if (= 0 (mod (- ?nivel 1) 2)) then
-    ;     (if (> ?*NIV_BETA* (- ?nivel 1)) then
-    ;         (bind ?*BETA* ?*INF*)
-    ;         (bind ?*NIV_BETA* ?*MAX_PROF*)
-    ;     )
-    ; else
-    ;     (if (> ?*NIV_ALFA* (- ?nivel 1)) then
-    ;         (bind ?*ALFA* ?*M_INF*)
-    ;         (bind ?*NIV_ALFA* ?*MAX_PROF*)
-    ;     )
-    ; )
 )
 
+; Regla para determinar cuando se ha terminado la búsqueda.
 (defrule IA::fin
+    ; menos prioridad que el resto de reglas relacionadas con la búsqueda.
     (declare (salience 90))
+
+    ; si estamos en proceso de recorrer el aŕbol
     ?f <- (recorrer_arbol)
+
+    ; y el nodo actual es el nodo raiz
+    ; y hay una posible solución con el mismo valor que el nodo raiz
     ?control <- (control (nodo_actual 0) (visitados $?visitados))
     ?origen <- (estado (id 0) (valor ?valor_final))
     ?s <- (pos_solucion (valor ?valor) (movimiento ?mov))
     (test (eq ?valor ?valor_final))
+
     =>
+
+    ; se guarda el movimiento de la solución
     (bind ?*MOV_IA* ?mov)
+
+    ; se termina la búsqueda y comienza la limpieza
     (retract ?f)
     (retract ?control)
     (assert (limpiar))
