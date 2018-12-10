@@ -210,7 +210,11 @@
 (deffunction JUEGO::print_tablero_grande(?blancas ?negras)
     (loop-for-count (?i 0 ?*DIM*)
         (bind ?fila (- ?*DIM* ?i))
-        (printout t "   ---------------------------------" crlf)
+        (printout t "   ")
+        (loop-for-count (?i 1 ?*DIM*)
+            (printout t "----")
+        )
+        (printout t "-" crlf)
         (bind ?linea "")
         (loop-for-count (?col 0 ?*DIM*)
             (if (= ?col 0) then
