@@ -1144,7 +1144,7 @@
         (if (or (= ?nivel ?*MAX_PROF*) (eq 0 (length$ ?movimientos_opp))) then
             ; si se ha llegado a máxima profundidad
             ; el estado es final, así que se le añade heurístico
-            (bind ?heur (heuristico $?blancas $?negras ?color))
+            (bind ?heur (heuristico $?blancas $?negras (not ?*COLOR_J*)))
         else
             (bind ?heur FALSE)
         )
