@@ -345,7 +345,7 @@
         (bind ?nuevas_aliadas (replace$ ?aliadas ?index ?index ?pieza_movida))
     else
         ; si no se ha encontrado, se asume error y se sale del juego
-        (printout t "mov. no encontrado" crlf)
+        (printout t ?mov " -> mov. no encontrado" crlf)
         (halt)
     )
     (bind ?lista (explode$ ?mov))
@@ -825,8 +825,8 @@
     (ganaronblancas)
     =>
     (assert(findejuego))
-    (printout t "Han ganado las blancas!!!" crlf)
     (print_tablero $?b $?n FALSE)
+    (printout t "Han ganado las blancas!!!" crlf)
     (retract ?w)
 )
 
@@ -836,8 +836,8 @@
     (ganaronnegras)
     =>
     (assert(findejuego))
-    (printout t "Han ganado las negras!!!" crlf)
     (print_tablero $?b $?n FALSE)
+    (printout t "Han ganado las negras!!!" crlf)
     (retract ?m)
 )
 
@@ -1034,6 +1034,8 @@
     ; para evitar tener que hacer un árbol de búsqueda
     (bind ?unica_posib FALSE)
     (bind ?buscar TRUE)
+    (bind $?nuevas_blancas $?blancas)
+    (bind $?nuevas_negras $?negras)
     (while (and (= 1 (length$ ?movimientos)) ?buscar)
         ; mientras solo un movimiento sea posible
         ; se inicializa ?unica_posib en caso de que haga falta
@@ -1052,7 +1054,7 @@
 
             ; se calculan las nuevas posiciones y los posibles movimiento
             (bind ?pieza (sub-string (- (length ?mov) 1) (length ?mov) ?mov))
-            (bind ?res (calcular_movimiento $?blancas $?negras ?mov (not ?*COLOR_J*)))
+            (bind ?res (calcular_movimiento $?nuevas_blancas $?nuevas_negras ?mov (not ?*COLOR_J*)))
             (bind ?index_separador (str-index "|" ?res))
             (bind $?nuevas_blancas (explode$ (sub-string 1 (- ?index_separador 1) ?res)))
             (bind $?nuevas_negras (explode$ (sub-string (+ ?index_separador 1) (length ?res) ?res)))
@@ -1138,7 +1140,8 @@
     (bind ?movimientos (movimientos $?blancas $?negras ?color ?pieza))
     (if (not ?*MOV_FORZADO*) then
         ; si no hay ningún mov. forzado, se crea un tablero normal
-        (if (= ?nivel ?*MAX_PROF*) then
+        (bind ?movimientos_opp (movimientos $?blancas $?negras (not ?color) FALSE))
+        (if (or (= ?nivel ?*MAX_PROF*) (eq 0 (length$ ?movimientos_opp))) then
             ; si se ha llegado a máxima profundidad
             ; el estado es final, así que se le añade heurístico
             (bind ?heur (heuristico $?blancas $?negras ?color))
@@ -1172,8 +1175,8 @@
     (not (limpiar))
 
     ; y existe un estado en la profundidad máxima
-    (estado (nivel ?n))
-    (test (>= ?n ?*MAX_PROF*))
+    (estado (nivel ?n) (valor ?valor))
+    (test (not (eq ?valor FALSE )))
 
     =>
 
