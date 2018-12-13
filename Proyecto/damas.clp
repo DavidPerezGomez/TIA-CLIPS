@@ -1,6 +1,9 @@
 ; ==============================================================================
 ; JUEGO
 ; ==============================================================================
+; Módulo para ejecutar el juego. Dibuja el tablero, gestiona los turnos, pide
+; moviminetos al jugador y a la IA, calcula el resultado de los movimientos y
+; los aplica y comprueba cuando el juego termina.
 (defmodule JUEGO (export deftemplate tablero ia_movido)
                  (export defglobal DIM COLOR_J MOV_FORZADO CORONADO MOV_IA)
                  (export deffunction movimientos calcular_movimiento heuristico in append))
@@ -9,24 +12,30 @@
     ?*DIM* = 8 ; tamaño del tablero
     ?*TURNO* = TRUE ; turno actual. TRUE: blancas; FALSE: negras
     ?*COLOR_J* = TRUE ; color del jugador. TRUE: blancas; FALSE: negras
-    ?*PIEZA_NORMAL* = "N"
-    ?*DAMA* = "D"
-    ?*MOV_FORZADO* = FALSE
-    ?*CORONADO* = FALSE
-    ?*MOV_IA* = FALSE
-    ?*SYMB_PEON_B* = "o" ; simbolo para las blancas
-    ?*SYMB_PEON_N* = "x" ; simbolo para las negras
+    ?*PIEZA_NORMAL* = "N" ; símbolo para representar las piezas normales (peones) en el programa
+    ?*DAMA* = "D" ; símbolo para representar las damas en el programa
+    ?*MOV_FORZADO* = FALSE ; flag para indicar que un movimiento está forzado (es una captura)
+    ?*CORONADO* = FALSE ; flag para indicar que un movimiento termina en un peón siendo coronado
+    ?*MOV_IA* = FALSE ; variable para guardar el movimiento realizado por la IA
+    ?*SYMB_PEON_B* = "o" ; simbolo para los peones blancos
+    ?*SYMB_PEON_N* = "x" ; simbolo para los peones negros
     ?*SYMB_DAMA_B* = "O" ; simbolo para las damas blancas
     ?*SYMB_DAMA_N* = "X" ; simbolo para las damas blancas
-    ?*SYMB_G_PEON_B* = " o " ; simbolo para las blancas
-    ?*SYMB_G_PEON_N* = " x " ; simbolo para las negras
-    ?*SYMB_G_DAMA_B* = "oOo" ; simbolo para las damas blancas
-    ?*SYMB_G_DAMA_N* = "xXx" ; simbolo para las damas blancas
-    ?*SYM_V* = " " ; simbolo para el vacio
+    ?*SYMB_G_PEON_B* = " o " ; simbolo para los peones blancos (en tablero grande)
+    ?*SYMB_G_PEON_N* = " x " ; simbolo para los peones negros (en tablero grande)
+    ?*SYMB_G_DAMA_B* = "oOo" ; simbolo para las damas blancas (en tablero grande)
+    ?*SYMB_G_DAMA_N* = "xXx" ; simbolo para las damas blancas (en tablero grande)
+    ?*SYM_V* = " " ; simbolo para casilla vacía
     ?*DEBUG* = TRUE
 )
 
 ; estado actual del tablero
+; blancas y negras son strings que representan las piezas de cada jugador
+; en cada string, las piezas se representan mediante una letra para identificar
+; su tipo (N/D) su columna y su fila
+; N45 es un peón en x=4 & y=5 (columna 4, fila 5)
+; los identificadores de cada pieza están separados por espacios
+; blancas = "N11 N31 N51 N71 N22 N42 N62 N82 N13 N33 N53 N73"
 (deftemplate JUEGO::tablero
   (multislot blancas)
   (multislot negras)
@@ -85,46 +94,17 @@
     (return ?result)
 )
 
-; 8| | | | | | | | |
-; 7| | | | | | | | |
-; 6| | | | | | | | |
-; 5| | | | | |x| | |
-; 4| | |x| | | | | |
-; 3| |o| | | |x| | |
-; 2|o| | | | | |o| |
-; 1| | | | | | | |o|
-; 0 1 2 3 4 5 6 7 8
-; (bind ?blancas "N12 N23 N72 N81")
-; (bind ?negras "N34 N63 N65")
-; --------
-; 6| |x| | | |x|
-; 5|o| |o| |x| |
-; 4| | | | | | |
-; 3| | | | | | |
-; 2| |o| |o| | |
-; 1|o| |X| | | |
-; 0 1 2 3 4 5 6
-; (bind ?blancas "N11 N22 N42 N15 N35")
-; (bind ?negras "N26 D31 N55 N66")
-; --------
-; 6| |x| |X| |x|
-; 5|o| | | |x| |
-; 4| | | | | | |
-; 3| | |o| | | |
-; 2| | | | | | |
-; 1|o| | | | | |
-; 0 1 2 3 4 5 6
-; (bind ?blancas "N11 N22 N42 N15 N35")
-; (bind ?negras "N26 D31 N55 N66")
+; crea ua versión personalizada del tablero
 (deffunction JUEGO::crear_tablero_test()
-    (bind ?blancas "N11 N33 N15")
-    (bind ?negras "N26 D46 N55 N66")
+    (bind ?blancas "N33")
+    (bind ?negras "N44")
     ; Cambiar las fichas a multicampos
     (bind ?negras (explode$ ?negras))
     (bind ?blancas (explode$ ?blancas))
     (assert(tablero (blancas ?blancas) (negras ?negras)))
 )
 
+; crea el tablero inicial
 (deffunction JUEGO::crear_tablero()
     (bind ?negras "")
     (bind ?blancas "")
@@ -149,6 +129,7 @@
     (assert(tablero (blancas ?blancas) (negras ?negras)))
 )
 
+; dibuja un tablero con las piezas blancs y negras
 (deffunction JUEGO::print_tablero_pequeño(?blancas ?negras)
     (loop-for-count (?i 0 ?*DIM*)
         (bind ?linea "")
@@ -207,6 +188,7 @@
     )
 )
 
+; dibuja un tablero más grande con las piezas blancs y negras
 (deffunction JUEGO::print_tablero_grande(?blancas ?negras)
     (loop-for-count (?i 0 ?*DIM*)
         (bind ?fila (- ?*DIM* ?i))
@@ -318,6 +300,7 @@
     (bind ?pos_origen (sub-string 1 2 ?mov))
     (bind ?pos_destino (sub-string (- ?long 1) ?long ?mov))
     (bind ?encontrada FALSE)
+
     ; generalización de las listas de piezas en ?aliadas y ?enemigas
     (if ?color then
         (bind ?aliadas ?blancas)
@@ -330,6 +313,7 @@
         (bind ?enemigas ?blancas)
         (bind ?nuevas_enemigas ?blancas)
     )
+
     (bind ?index 0)
     ; iterar las aliadas buscando la pieza que se quiere mover
     (loop-for-count (?i 1 (length$ ?aliadas))
@@ -674,22 +658,8 @@
 ; pregunta al jugador el movimiento que quiere realizar
 ; devuelve una string que contiene las cordenadas de la pieza y las de
 ; la casilla destino
-; >
 (deffunction JUEGO::pedir_mov(?blancas ?negras ?juegan_blancas ?pieza_a_mover)
     (bind ?pos_mov (movimientos ?blancas ?negras ?juegan_blancas ?pieza_a_mover))
-   (if (eq (length ?pos_mov) 0) then
-   (if (eq ?juegan_blancas FALSE ) then
-   (assert(ganaronblancas))
-   (return)
-   else
-   (assert(ganaronnegras))
-   (return)
-   )
-   (printout t " fin del juego" crlf )
-   (assert(findejuego))
-   (return)
-   )
-
     (while TRUE
         (print_tablero ?blancas ?negras FALSE)
 
@@ -750,10 +720,8 @@
     (aplicar_movimiento ?blancas ?negras ?mov ?color)
 )
 
-(deffunction JUEGO::turno_ia(?blancas ?negras ?color ?pieza_a_mover)
-    (turno_jugador ?blancas ?negras ?color ?pieza_a_mover)
-)
-
+; ejecuta el turno actual. si es el turno del jugador, se le pide el movimiento
+; y se aplica. si es el turno del ordenador, se devuelve FALSE.
 (deffunction JUEGO::turno(?blancas ?negras ?verbose ?pieza_a_mover)
     (if (eq ?*TURNO* ?*COLOR_J*) then
         (if ?verbose then
@@ -769,7 +737,7 @@
             (printout t "TURNO DEL ORDENADOR" crlf)
             (printout t "===================" crlf)
         )
-        ; (turno_ia ?blancas ?negras (not ?*COLOR_J*) ?pieza_a_mover)
+        (print_tablero ?blancas ?negras FALSE)
         (return FALSE)
     )
 )
@@ -781,6 +749,13 @@
     (retract ?f)
     (crear_tablero)
     ; (crear_tablero_test)
+)
+
+(defrule JUEGO::findejuego
+    (declare (salience 200))
+    (findejuego)
+    =>
+    (halt)
 )
 
 (defrule JUEGO::turno_intermedio
@@ -803,23 +778,29 @@
     (retract ?t)
 )
 
-(defrule JUEGO::findejuego
-    (declare (salience 100))
-    (findejuego)
-    =>
-    (halt)
-)
-
 (defrule JUEGO::turno
     (declare (salience 50))
     ?t <- (tablero (blancas $?b) (negras $?n))
     =>
-    (bind ?r (turno $?b $?n TRUE FALSE))
-    (if ?r then
-        (retract ?t)
+    (bind ?pos_mov (movimientos $?b $?n ?*TURNO* FALSE))
+    (if (eq (length ?pos_mov) 0) then
+        ; si no es posible hacer ningún movimiento, el juego ha terminado.
+       (if (eq ?*TURNO* FALSE) then
+           (assert(ganaronblancas))
+       else
+           (assert(ganaronnegras))
+       )
+       (printout t "Fin del juego!" crlf )
     else
-        (focus IA)
-        (return)
+        (bind ?r (turno $?b $?n TRUE FALSE))
+        (if ?r then
+            ; turno de jugador realizado
+           (retract ?t)
+           else
+           ; turno del ordenador. pasar focus al módulo IA.
+           (focus IA)
+           (return)
+        )
     )
 )
 
@@ -844,9 +825,9 @@
     (ganaronblancas)
     =>
     (assert(findejuego))
-    (printout t " han ganado las blancas")
+    (printout t "Han ganado las blancas!!!" crlf)
+    (print_tablero $?b $?n FALSE)
     (retract ?w)
-    (printout t " han ganado las blancas")
 )
 
 (defrule JUEGO::ganaronnegras
@@ -855,9 +836,9 @@
     (ganaronnegras)
     =>
     (assert(findejuego))
-    (printout t " han ganado las negras")
+    (printout t "Han ganado las negras!!!" crlf)
+    (print_tablero $?b $?n FALSE)
     (retract ?m)
-    (printout t " han ganado las negras")
 )
 
 (defrule JUEGO::salir
@@ -874,13 +855,14 @@
 ; ==============================================================================
 ; IA
 ; ==============================================================================
+; módulo para el cálculo de movimientos del ordenador.
 (defmodule IA (import JUEGO deftemplate tablero ia_movido)
               (import JUEGO defglobal COLOR_J MOV_FORZADO CORONADO MOV_IA)
               (import JUEGO deffunction movimientos calcular_movimiento heuristico in append))
 
 (defglobal IA
     ?*CONTADOR_ID* = 0
-    ?*MAX_PROF* = 4
+    ?*MAX_PROF* = 5
     ?*INF* = 99999
     ?*M_INF* = -99999
 )
