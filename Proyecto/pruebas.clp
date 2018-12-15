@@ -27,6 +27,10 @@
     ?*HEU_VALOR_PIEZA_NORMAL* = 1
     ?*HEU_VALOR_PIEZA_DAMA* = 2
 
+    ; VALORES INFINITO
+    ?*HEU_MAS_INFINITO* = 9999
+    ?*HEU_MENOS_INFINITO* = -9999
+
     ; RANDOM
     ?*HEU_RANDOM* = 100 ; del 1 al 100
     ?*HEU_RANDOM_DIVISOR* = 100 ; divisor del resultado
@@ -100,6 +104,7 @@
       (bind ?resultado (+ ?resultado ?*DIM* ?*HEU_VALOR_PIEZA_DAMA*))
     )
   )
+  (return ?resultado)
 )
 
 (deffunction calcular_valor_por_fila_negras (?negras)
@@ -119,6 +124,7 @@
       (bind ?resultado (+ ?resultado ?*DIM* ?*HEU_VALOR_PIEZA_DAMA*))
     )
   )
+  (return ?resultado)
 )
 
 ; ###########################################
@@ -166,14 +172,20 @@
 
   (bind ?resultado_blancas (calcular_valor_por_fila_blancas ?blancas))
   (bind ?resultado_negras (calcular_valor_por_fila_negras ?negras))
-  (bind ?resultado (- ?resultado_blancas ?resultado_negras))
-  (return ?resultado)
+
+  (if ?color then
+    (bind ?resultado (- ?resultado_blancas ?resultado_negras))
+    (return ?resultado)
+  else
+    (bind ?resultado (- ?resultado_negras ?resultado_blancas))
+    (return ?resultado)
+  )
 )
 
 ; ######## </SUBHEURISTICOS A USAR> #########
 ; ###########################################
 
-(deffunction heuristico_todo(?aliadas ?contrarias ?color)
+(deffunction heuristico1(?aliadas ?contrarias ?color)
   ; Aplica todos los heuristicos
   (bind ?resultado 0)
   (bind ?resultado (+ ?resultado (sub_heuristico_random)))
@@ -183,7 +195,7 @@
   (return ?resultado)
 )
 
-(deffunction heuristico_tests(?aliadas ?contrarias ?color)
+(deffunction heuristico2(?aliadas ?contrarias ?color)
   ; Aplica los heuristicos deseados para hacer pruebas
   (bind ?resultado 0)
   (bind ?resultado (+ ?resultado (sub_heuristico_random)))
@@ -194,14 +206,29 @@
 ; (deffunction JUEGO::heuristico(?blancas ?negras ?color)
 (deffunction heuristico(?blancas ?negras ?color)
   ; ?color = True para blancas, False para negras
-  (if ?color then
+  ; Si una lista esta vacia es fin del juego, el resultado sera
+  ; +infinito o -infinito en funcion de quien sea el que juega
+  (if ?color then ; si juego con blancas
+    (if (eq 0 (length$ ?negras)) then ; gano si no hay del otro color
+      (return ?*HEU_MAS_INFINITO*)
+    )
+    (if (eq 0 (length$ ?blancas)) then ; pierdo si no hay de mi color
+      (return ?*HEU_MENOS_INFINITO*)
+    )
     (bind ?aliadas ?blancas)
     (bind ?contrarias ?negras)
+    (return (heuristico1 ?aliadas ?contrarias ?color))
   else
+    (if (eq 0 (length$ ?blancas)) then ; gano si no hay del otro color
+      (return ?*HEU_MAS_INFINITO*)
+    )
+    (if (eq 0 (length$ ?negras)) then ; pierdo si no hay de mi color
+      (return ?*HEU_MENOS_INFINITO*)
+    )
     (bind ?aliadas ?negras)
     (bind ?contrarias ?blancas)
+    (return (heuristico2 ?aliadas ?contrarias ?color))
   )
-  (return (heuristico_todo ?aliadas ?contrarias ?color))
   ; (return (heuristico_tests ?aliadas ?contrarias ?color))
 )
 
