@@ -6,7 +6,7 @@
 ; los aplica y comprueba cuando el juego termina.
 (defmodule JUEGO (export deftemplate tablero ia_movido)
                  (export defglobal DIM COLOR_J MOV_FORZADO CORONADO MOV_IA DIM)
-                 (export deffunction movimientos calcular_movimiento heuristico in append))
+                 (export deffunction cuantas_damas movimientos calcular_movimiento heuristico in append))
 
 (defglobal JUEGO
     ?*DIM* = 8 ; tamaño del tablero
@@ -428,8 +428,8 @@
   (bind ?resultado 0)
   (bind ?resultado (+ ?resultado (sub_heuristico_random)))
   (bind ?resultado (+ ?resultado (sub_heuristico_diferencia_piezas ?aliadas ?contrarias)))
-  (bind ?resultado (+ ?resultado (sub_heuristico_diferencia_piezas_normalizar ?aliadas ?contrarias)))
-  (bind ?resultado (+ ?resultado (sub_heuristico_valor_por_fila ?aliadas ?contrarias ?color)))
+  ; (bind ?resultado (+ ?resultado (sub_heuristico_diferencia_piezas_normalizar ?aliadas ?contrarias)))
+  ; (bind ?resultado (+ ?resultado (sub_heuristico_valor_por_fila ?aliadas ?contrarias ?color)))
   (return ?resultado)
 )
 
@@ -437,6 +437,9 @@
   ; Aplica los heuristicos deseados para hacer pruebas
   (bind ?resultado 0)
   (bind ?resultado (+ ?resultado (sub_heuristico_random)))
+  (bind ?resultado (+ ?resultado (sub_heuristico_diferencia_piezas ?aliadas ?contrarias)))
+  (bind ?resultado (+ ?resultado (sub_heuristico_diferencia_piezas_normalizar ?aliadas ?contrarias)))
+  (bind ?resultado (+ ?resultado (sub_heuristico_valor_por_fila ?aliadas ?contrarias ?color)))
   (return ?resultado)
 )
 
@@ -1042,7 +1045,7 @@
 ; módulo para el cálculo de movimientos del ordenador.
 (defmodule IA (import JUEGO deftemplate tablero ia_movido)
               (import JUEGO defglobal COLOR_J MOV_FORZADO CORONADO MOV_IA DIM)
-              (import JUEGO deffunction movimientos calcular_movimiento heuristico in append))
+              (import JUEGO deffunction movimientos calcular_movimiento cuantas_damas heuristico in append))
 
 (defglobal IA
     ?*CONTADOR_ID* = 0
@@ -1262,16 +1265,21 @@
         (assert (limpiar))
 
     else
+        (bind ?num_damas (+ (cuantas_damas $?blancas) (cuantas_damas $?negras) ))
         (bind ?num_piezas (+ (length$ $?blancas) (length $?negras)))
-        (if (>= ?num_piezas 13) then
-            (bind ?*MAX_PROF* 3)
-        else (if (>= ?num_piezas 9) then
-            (bind ?*MAX_PROF* 4)
-        else (if (>= ?num_piezas 5) then
-            (bind ?*MAX_PROF* 5)
+        (if (or (>= ?num_piezas 13) (>= ?num_damas 2) ) then
+          (bind ?*MAX_PROF* 3)
         else
-            (bind ?*MAX_PROF* 6)
-        )))
+          (if (>= ?num_piezas 9) then
+            (bind ?*MAX_PROF* 4)
+          else
+            (if (>= ?num_piezas 5) then
+              (bind ?*MAX_PROF* 4)
+            else
+              (bind ?*MAX_PROF* 3)
+            )
+          )
+        )
         (if (>= ?*DIM* 6) then
             ; para tablero pequeños no se tienen en cuenta las damas
             (bind ?n_damas 0)
