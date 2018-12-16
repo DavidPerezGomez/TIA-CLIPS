@@ -5,7 +5,7 @@
 ; moviminetos al jugador y a la IA, calcula el resultado de los movimientos y
 ; los aplica y comprueba cuando el juego termina.
 (defmodule JUEGO (export deftemplate tablero ia_movido)
-                 (export defglobal DIM COLOR_J MOV_FORZADO CORONADO MOV_IA)
+                 (export defglobal DIM COLOR_J MOV_FORZADO CORONADO MOV_IA DIM)
                  (export deffunction movimientos calcular_movimiento heuristico in append))
 
 (defglobal JUEGO
@@ -114,8 +114,8 @@
 
 ; crea ua versión personalizada del tablero
 (deffunction JUEGO::crear_tablero_test()
-    (bind ?blancas "N22 D55")
-    (bind ?negras "D44")
+    (bind ?blancas "N11 N13 N15 N17 N73 N17")
+    (bind ?negras "N28 N37 N66 N88")
     ; Cambiar las fichas a multicampos
     (bind ?negras (explode$ ?negras))
     (bind ?blancas (explode$ ?blancas))
@@ -1041,7 +1041,7 @@
 ; ==============================================================================
 ; módulo para el cálculo de movimientos del ordenador.
 (defmodule IA (import JUEGO deftemplate tablero ia_movido)
-              (import JUEGO defglobal COLOR_J MOV_FORZADO CORONADO MOV_IA)
+              (import JUEGO defglobal COLOR_J MOV_FORZADO CORONADO MOV_IA DIM)
               (import JUEGO deffunction movimientos calcular_movimiento heuristico in append))
 
 (defglobal IA
@@ -1262,6 +1262,32 @@
         (assert (limpiar))
 
     else
+        (bind ?num_piezas (+ (length$ $?blancas) (length $?negras)))
+        (if (>= ?num_piezas 13) then
+            (bind ?*MAX_PROF* 3)
+        else (if (>= ?num_piezas 9) then
+            (bind ?*MAX_PROF* 4)
+        else (if (>= ?num_piezas 5) then
+            (bind ?*MAX_PROF* 5)
+        else
+            (bind ?*MAX_PROF* 6)
+        )))
+        (bind ?n_damas 0)
+        (foreach ?pieza (create$ $?blancas $?negras)
+            (if (eq "D" (sub-string 1 1 ?pieza)) then
+                (bind ?n_damas (+ ?n_damas 1))
+            )
+        )
+        (printout t "damas: " ?n_damas crlf)
+        (printout t "prof1: " ?*MAX_PROF* crlf)
+        (if (< ?*DIM* 6) then
+            (bind ?n_damas 0)
+        else (if (> ?*DIM* 6) then
+            (bind ?n_damas (+ ?n_damas 1))
+        ))
+        (bind ?*MAX_PROF* (- ?*MAX_PROF* ?n_damas))
+        (bind ?*MAX_PROF* (max ?*MAX_PROF* 3))
+        (printout t "prof2: " ?*MAX_PROF* crlf)
         ; se crea el nodo raiz del árbol
         (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento FALSE)))
         (reset_contador)
@@ -1275,6 +1301,7 @@
     ; si estamos en el proceso de crear el árbol
     (not (recorrer_arbol))
     (not (limpiar))
+    (not (abortar_crear_arbol))
 
     ; y existe un estado que no es final (no está en prof. max. y no tiene valor)
     ?e <- (estado (id ?id) (nivel ?n) (blancas $?blancas) (negras $?negras) (valor ?valor))

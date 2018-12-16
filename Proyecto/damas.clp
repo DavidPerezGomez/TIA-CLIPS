@@ -5,7 +5,7 @@
 ; moviminetos al jugador y a la IA, calcula el resultado de los movimientos y
 ; los aplica y comprueba cuando el juego termina.
 (defmodule JUEGO (export deftemplate tablero ia_movido)
-                 (export defglobal DIM COLOR_J MOV_FORZADO CORONADO MOV_IA)
+                 (export defglobal DIM COLOR_J MOV_FORZADO CORONADO MOV_IA DIM)
                  (export deffunction movimientos calcular_movimiento heuristico in append))
 
 (defglobal JUEGO
@@ -857,12 +857,12 @@
 ; ==============================================================================
 ; módulo para el cálculo de movimientos del ordenador.
 (defmodule IA (import JUEGO deftemplate tablero ia_movido)
-              (import JUEGO defglobal COLOR_J MOV_FORZADO CORONADO MOV_IA)
+              (import JUEGO defglobal COLOR_J MOV_FORZADO CORONADO MOV_IA DIM)
               (import JUEGO deffunction movimientos calcular_movimiento heuristico in append))
 
 (defglobal IA
     ?*CONTADOR_ID* = 0
-    ?*MAX_PROF* = 5
+    ?*MAX_PROF* = 6
     ?*INF* = 99999
     ?*M_INF* = -99999
 )
@@ -1079,6 +1079,30 @@
         (assert (limpiar))
 
     else
+        (bind ?num_piezas (+ (length$ $?blancas) (length $?negras)))
+        (if (>= ?num_piezas 13) then
+            (bind ?*MAX_PROF* 3)
+        else (if (>= ?num_piezas 8) then
+            (bind ?*MAX_PROF* 4)
+        else (if (>= ?num_piezas 7) then
+            (bind ?*MAX_PROF* 5)
+        else (if (>= ?num_piezas 5) then
+            (bind ?*MAX_PROF* 6)
+        else
+            (bind ?*MAX_PROF* 7)
+        ))))
+        (bind ?n_damas 0)
+        (foreach ?pieza (create$ $?blancas $?negras)
+            (if (eq "D" (sub-string 1 1 ?pieza)) then
+                (bind ?n_damas (+ ?n_damas 1))
+            )
+        )
+        (if (eq ?*DIM* 6) then
+            (bind ?*MAX_PROF* (- ?*MAX_PROF* (integer (/ (+ ?n_damas 1) 2))))
+        else (if (> ?*DIM* 6) then
+            (bind ?n_damas (+ ?n_damas 1))
+            (bind ?*MAX_PROF* (- ?*MAX_PROF* ?n_damas ))
+        ))
         ; se crea el nodo raiz del árbol
         (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento FALSE)))
         (reset_contador)
@@ -1092,6 +1116,7 @@
     ; si estamos en el proceso de crear el árbol
     (not (recorrer_arbol))
     (not (limpiar))
+    (not (abortar_crear_arbol))
 
     ; y existe un estado que no es final (no está en prof. max. y no tiene valor)
     ?e <- (estado (id ?id) (nivel ?n) (blancas $?blancas) (negras $?negras) (valor ?valor))
@@ -1174,11 +1199,12 @@
     (not (recorrer_arbol))
     (not (limpiar))
 
-    ; y existe un estado en la profundidad máxima
+    ; y existe un estado final
     (estado (nivel ?n) (valor ?valor))
     (test (not (eq ?valor FALSE )))
 
     =>
+    (printout t "prof: " ?n crlf)
 
     ; creamos el hecho de control y pasamos a recorrer el árbol
     (reset_control)
