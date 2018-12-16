@@ -1272,17 +1272,20 @@
         else
             (bind ?*MAX_PROF* 6)
         )))
-        (bind ?n_damas 0)
-        (foreach ?pieza (create$ $?blancas $?negras)
-            (if (eq "D" (sub-string 1 1 ?pieza)) then
+        (if (>= ?*DIM* 6) then
+            ; para tablero pequeños no se tienen en cuenta las damas
+            (bind ?n_damas 0)
+            (foreach ?pieza (create$ $?blancas $?negras)
+                (if (eq "D" (sub-string 1 1 ?pieza)) then
+                    (bind ?n_damas (+ ?n_damas 1))
+                )
+            )
+            (bind ?n_damas 0)
+            (if (and (> ?n_damas 0) (> ?*DIM* 6)) then
+                ; para tablero grandes se añade una dama extra
                 (bind ?n_damas (+ ?n_damas 1))
             )
         )
-        (if (< ?*DIM* 6) then
-            (bind ?n_damas 0)
-        else (if (> ?*DIM* 6) then
-            (bind ?n_damas (+ ?n_damas 1))
-        ))
         (bind ?*MAX_PROF* (- ?*MAX_PROF* ?n_damas))
         (bind ?*MAX_PROF* (max ?*MAX_PROF* 3))
         ; se crea el nodo raiz del árbol
