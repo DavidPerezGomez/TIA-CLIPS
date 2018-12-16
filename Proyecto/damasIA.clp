@@ -1278,8 +1278,6 @@
                 (bind ?n_damas (+ ?n_damas 1))
             )
         )
-        (printout t "damas: " ?n_damas crlf)
-        (printout t "prof1: " ?*MAX_PROF* crlf)
         (if (< ?*DIM* 6) then
             (bind ?n_damas 0)
         else (if (> ?*DIM* 6) then
@@ -1287,7 +1285,6 @@
         ))
         (bind ?*MAX_PROF* (- ?*MAX_PROF* ?n_damas))
         (bind ?*MAX_PROF* (max ?*MAX_PROF* 3))
-        (printout t "prof2: " ?*MAX_PROF* crlf)
         ; se crea el nodo raiz del árbol
         (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento FALSE)))
         (reset_contador)

@@ -1204,7 +1204,6 @@
     (test (not (eq ?valor FALSE )))
 
     =>
-    (printout t "prof: " ?n crlf)
 
     ; creamos el hecho de control y pasamos a recorrer el árbol
     (reset_control)
