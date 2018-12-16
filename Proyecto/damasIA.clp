@@ -114,8 +114,8 @@
 
 ; crea ua versión personalizada del tablero
 (deffunction JUEGO::crear_tablero_test()
-    (bind ?blancas "N11 N13 N15 N17 N73 N17")
-    (bind ?negras "N28 N37 N66 N88")
+    (bind ?blancas "N11 N31 N42")
+    (bind ?negras "N15  N35 N44 N62")
     ; Cambiar las fichas a multicampos
     (bind ?negras (explode$ ?negras))
     (bind ?blancas (explode$ ?blancas))
@@ -447,17 +447,17 @@
   ; ?color = True para blancas, False para negras
   ; Si una lista esta vacia es fin del juego, el resultado sera
   ; +infinito o -infinito en funcion de quien sea el que juega
-  (if ?color then ; si juego con blancas
-    (if (eq 0 (length$ ?negras)) then ; gano si no hay del otro color
-      (return ?*HEU_MAS_INFINITO*)
-    )
-    (if (eq 0 (length$ ?blancas)) then ; pierdo si no hay de mi color
-      (return ?*HEU_MENOS_INFINITO*)
-    )
-    (bind ?aliadas ?blancas)
-    (bind ?contrarias ?negras)
-    (return (heuristico1 ?aliadas ?contrarias ?color))
-  else
+  ; (if ?color then ; si juego con blancas
+  ;   (if (eq 0 (length$ ?negras)) then ; gano si no hay del otro color
+  ;     (return ?*HEU_MAS_INFINITO*)
+  ;   )
+  ;   (if (eq 0 (length$ ?blancas)) then ; pierdo si no hay de mi color
+  ;     (return ?*HEU_MENOS_INFINITO*)
+  ;   )
+  ;   (bind ?aliadas ?blancas)
+  ;   (bind ?contrarias ?negras)
+  ;   (return (heuristico1 ?aliadas ?contrarias ?color))
+  ; else
     (if (eq 0 (length$ ?blancas)) then ; gano si no hay del otro color
       (return ?*HEU_MAS_INFINITO*)
     )
@@ -467,7 +467,7 @@
     (bind ?aliadas ?negras)
     (bind ?contrarias ?blancas)
     (return (heuristico2 ?aliadas ?contrarias ?color))
-  )
+  ; )
 )
 
 ; ############### <HEURISTICOS> ###############
@@ -1265,37 +1265,41 @@
         (assert (limpiar))
 
     else
-        (bind ?num_damas (+ (cuantas_damas $?blancas) (cuantas_damas $?negras) ))
         (bind ?num_piezas (+ (length$ $?blancas) (length $?negras)))
-        (if (or (>= ?num_piezas 13) (>= ?num_damas 2) ) then
-          (bind ?*MAX_PROF* 3)
-        else
-          (if (>= ?num_piezas 9) then
+        (if (>= ?num_piezas 13) then
+            (bind ?*MAX_PROF* 3)
+        else (if (>= ?num_piezas 10) then
             (bind ?*MAX_PROF* 4)
-          else
-            (if (>= ?num_piezas 5) then
-              (bind ?*MAX_PROF* 4)
-            else
-              (bind ?*MAX_PROF* 3)
-            )
-          )
-        )
+        else (if (>= ?num_piezas 6) then
+            (bind ?*MAX_PROF* 5)
+        else
+            (bind ?*MAX_PROF* 6)
+        )))
         (if (>= ?*DIM* 6) then
             ; para tablero pequeños no se tienen en cuenta las damas
-            (bind ?n_damas 0)
-            (foreach ?pieza (create$ $?blancas $?negras)
-                (if (eq "D" (sub-string 1 1 ?pieza)) then
+            (bind ?n_damas (cuantas_damas (create$ $?blancas $?negras)))
+            (foreach ?pieza $?blancas
+                (if (eq 7 (string-to-field (sub-string 3 3 ?pieza))) then
                     (bind ?n_damas (+ ?n_damas 1))
                 )
             )
-            (bind ?n_damas 0)
-            (if (and (> ?n_damas 0) (> ?*DIM* 6)) then
-                ; para tablero grandes se añade una dama extra
-                (bind ?n_damas (+ ?n_damas 1))
+            (foreach ?pieza $?negras
+                (if (eq 2 (string-to-field (sub-string 3 3 ?pieza))) then
+                    (bind ?n_damas (+ ?n_damas 1))
+                )
             )
+            (printout t "damas: " ?n_damas crlf)
+            (if (> ?*DIM* 6) then
+                (bind ?*MAX_PROF* (- ?*MAX_PROF* (* 2 ?n_damas)))
+                (bind ?min 2)
+            else
+                (bind ?n_damas (+ ?n_damas 1))
+                (bind ?*MAX_PROF* (- ?*MAX_PROF* ?n_damas))
+                (bind ?min 3)
+            )
+            (bind ?*MAX_PROF* (max ?*MAX_PROF* ?min))
         )
-        (bind ?*MAX_PROF* (- ?*MAX_PROF* ?n_damas))
-        (bind ?*MAX_PROF* (max ?*MAX_PROF* 3))
+        (printout t "prof: " ?*MAX_PROF* crlf)
         ; se crea el nodo raiz del árbol
         (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento FALSE)))
         (reset_contador)

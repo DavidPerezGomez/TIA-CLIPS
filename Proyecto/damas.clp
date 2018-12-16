@@ -1291,29 +1291,38 @@
         (bind ?num_piezas (+ (length$ $?blancas) (length $?negras)))
         (if (>= ?num_piezas 13) then
             (bind ?*MAX_PROF* 3)
-        else (if (>= ?num_piezas 9) then
+        else (if (>= ?num_piezas 10) then
             (bind ?*MAX_PROF* 4)
-        else (if (>= ?num_piezas 5) then
+        else (if (>= ?num_piezas 6) then
             (bind ?*MAX_PROF* 5)
         else
             (bind ?*MAX_PROF* 6)
         )))
         (if (>= ?*DIM* 6) then
             ; para tablero pequeños no se tienen en cuenta las damas
-            (bind ?n_damas 0)
-            (foreach ?pieza (create$ $?blancas $?negras)
-                (if (eq "D" (sub-string 1 1 ?pieza)) then
+            (bind ?n_damas (cuantas_damas (create$ $?blancas $?negras)))
+            (foreach ?pieza $?blancas
+                (if (eq 7 (string-to-field (sub-string 3 3 ?pieza))) then
                     (bind ?n_damas (+ ?n_damas 1))
                 )
             )
-            (bind ?n_damas 0)
-            (if (and (> ?n_damas 0) (> ?*DIM* 6)) then
-                ; para tablero grandes se añade una dama extra
-                (bind ?n_damas (+ ?n_damas 1))
+            (foreach ?pieza $?negras
+                (if (eq 2 (string-to-field (sub-string 3 3 ?pieza))) then
+                    (bind ?n_damas (+ ?n_damas 1))
+                )
             )
+            (printout t "damas: " ?n_damas crlf)
+            (if (> ?*DIM* 6) then
+                (bind ?*MAX_PROF* (- ?*MAX_PROF* (* 2 ?n_damas)))
+                (bind ?min 2)
+            else
+                (bind ?n_damas (+ ?n_damas 1))
+                (bind ?*MAX_PROF* (- ?*MAX_PROF* ?n_damas))
+                (bind ?min 3)
+            )
+            (bind ?*MAX_PROF* (max ?*MAX_PROF* ?min))
         )
-        (bind ?*MAX_PROF* (- ?*MAX_PROF* ?n_damas))
-        (bind ?*MAX_PROF* (max ?*MAX_PROF* 3))
+        (printout t "prof: " ?*MAX_PROF* crlf)
         ; se crea el nodo raiz del árbol
         (assert (estado (id 0) (id_padre FALSE) (nivel 0) (blancas $?blancas) (negras $?negras) (movimiento FALSE)))
         (reset_contador)
